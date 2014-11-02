@@ -13,6 +13,7 @@ import (
 
 	"code.google.com/p/go.crypto/ripemd160"
 	"github.com/conformal/btcec"
+	"github.com/tv42/base58"
 )
 
 /*
@@ -167,41 +168,6 @@ func NewDeterministic(passphrase string,
 }
 
 /*
-Encode the private/public keys to base58 string. Code taken from:
-https://github.com/vsergeev/gimme-bitcoin-address/blob/master/gimme-bitcoin-address.go#L284
-*/
-func encodeBase58(b []byte) (s string) {
-	/* See https://en.bitcoin.it/wiki/Base58Check_encoding */
-
-	const BITCOIN_BASE58_TABLE = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
-
-	/* Initialize */
-	x := new(big.Int).SetBytes(b)
-	r := new(big.Int)
-	m := big.NewInt(58)
-	zero := big.NewInt(0)
-	s = ""
-
-	/* While x > 0 */
-	for x.Cmp(zero) > 0 {
-		/* x, r = (x / 58, x % 58) */
-		x.QuoRem(x, m, r)
-		/* Prepend ASCII character */
-		s = string(BITCOIN_BASE58_TABLE[r.Int64()]) + s
-	}
-
-	/* For number of leading 0's in bytes, prepend 1 */
-	for _, v := range b {
-		if v != 0 {
-			break
-		}
-		s = string(BITCOIN_BASE58_TABLE[0]) + s
-	}
-
-	return s
-}
-
-/*
 Converts the private key to wallet import format compatible key
 Code taken from:
 https://github.com/vsergeev/gimme-bitcoin-address/blob/master/gimme-bitcoin-address.go#L315
@@ -235,7 +201,8 @@ func privkeyToWIF(prikey *btcec.PrivateKey) (wifstr string) {
 	wif_bytes = append(wif_bytes, checksum...)
 
 	/* 6. Base58 the byte sequence */
-	wifstr = encodeBase58(wif_bytes)
+	i := new(big.Int).SetBytes(wif_bytes)
+	wifstr = string(base58.EncodeBig(nil, i))
 
 	return wifstr
 }
@@ -275,14 +242,22 @@ func encodeAddress(version, stream uint64, ripe []byte) (string, error) {
 	checksum := sha.Sum(nil)[0:4] // calc checksum from another round of SHA512
 
 	totalBin := append(currentHash, checksum...)
-	return "BM-" + encodeBase58(totalBin), nil // done
+	i := new(big.Int).SetBytes(totalBin)
+	return "BM-" + string(base58.EncodeBig(nil, i)), nil // done
+}
+
+/*
+Decode the Bitmessage address to give the address version, stream number and data.
+*/
+func decodeAddress(address string) (version, stream uint64, ripe []byte, error) {
+	
 }
 
 /*
 Encode the integer according to the protocol specifications. From addresses.py and
 https://bitmessage.org/wiki/Protocol_specification
 */
-func encodeVarint(x uint64) []byte {
+func encodeVarint(x uint64) ([]byte) {
 	buf := new(bytes.Buffer)
 	if x < 253 {
 		binary.Write(buf, binary.BigEndian, uint8(x))
@@ -300,4 +275,11 @@ func encodeVarint(x uint64) []byte {
 		binary.Write(buf, binary.BigEndian, uint64(x))
 	}
 	return buf.Bytes()
+}
+
+/*
+Decode a varint (as specified in protocol specifications) to a uint64
+*/
+func decodeVarint([]byte buf) (uint64) {
+	
 }

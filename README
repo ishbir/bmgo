@@ -4,7 +4,7 @@ programming language from Google.
 The entire thing is divided into 4 packages:
 
 - bitmessage:
-The main library which provides the implementation of the	protocol. It does not
+The main library which provides the implementation of the protocol. It does not
 interact with OS/network in any way. It is designed to be serial. Only v3 of the
 protocol is supported.
 

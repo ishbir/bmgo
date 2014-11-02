@@ -14,8 +14,8 @@ SQLite file on disk, including the user's identities. Also responsible for
 implementing the task queues and calling bitmessage package for doing its tasks.
 
 - daemon:
-The Bitmessage daemon designed as a thin wrapper over the middleware to manage and
-configure everything through the commandline.
+The Bitmessage daemon designed as a thin wrapper over the middleware to manage
+and configure everything through the commandline.
 
 - gui:
 The GUI meant for use by the average user, which connects the bitmessage and

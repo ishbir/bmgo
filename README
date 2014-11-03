@@ -6,7 +6,8 @@ The entire thing is divided into 4 packages:
 - bitmessage:
 The main library which provides the implementation of the protocol. It does not
 interact with OS/network in any way. It is designed to be serial. Only v3 of the
-protocol is supported.
+protocol and v4 addresses are supported.
+
 
 - middleware:
 Designed to connect to the required network (clearnet/I2P/Tor) and manage the

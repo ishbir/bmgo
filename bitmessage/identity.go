@@ -7,24 +7,21 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"crypto/sha512"
-	"encoding/binary"
 	"errors"
 	"math/big"
 
 	"code.google.com/p/go.crypto/ripemd160"
 	"github.com/conformal/btcec"
 	"github.com/tv42/base58"
+
+	"github.com/ishbir/bitmessage-go/bitmessage/protocol"
 )
 
 /*
 The identity of the user, which includes public and private encryption and signing
-keys along with the address and WIF format keys.
+keys.
 */
 type Identity struct {
-	Address                 string
-	PrivateSigningKeyWIF    string
-	PrivateEncryptionKeyWIF string
-
 	PublicSigningKey  *btcec.PublicKey
 	PrivateSigningKey *btcec.PrivateKey
 
@@ -36,8 +33,53 @@ type Identity struct {
 Create an Identity object from the Bitmessage address and Wallet Import Format
 signing and encryption keys.
 */
-func Load(address, signingKeyWif, encryptionKeyWif string) (*Identity, error) {
+func Import(address, signingKeyWif, encryptionKeyWif string) (*Identity, error) {
+	// (Try to) decode address
+	_, _, _, err := protocol.DecodeAddress(address)
+	if err != nil {
+		return nil, err
+	}
+	// We don't need an address version check here because DecodeAddress handles it
 
+	privSigningKey, err := wifToPrivkey(signingKeyWif)
+	if err != nil {
+		err = errors.New("signing key decode failed: " + err.Error())
+		return nil, err
+	}
+	privEncryptionKey, err := wifToPrivkey(encryptionKeyWif)
+	if err != nil {
+		err = errors.New("encryption key decode failed: " + err.Error())
+		return nil, err
+	}
+
+	return &Identity{
+		PrivateSigningKey:    privSigningKey,
+		PublicSigningKey:     privSigningKey.PubKey(),
+		PrivateEncryptionKey: privEncryptionKey,
+		PublicEncryptionKey:  privEncryptionKey.PubKey(),
+	}, nil
+}
+
+func (id *Identity) Export(version, stream uint64) (address, signingKeyWif, encryptionKeyWif string, err error) {
+	address, err = protocol.EncodeAddress(version, stream, id.Hash())
+	if err != nil {
+		err = errors.New("error encoding address: " + err.Error())
+		return
+	}
+	signingKeyWif = privkeyToWIF(id.PrivateSigningKey)
+	encryptionKeyWif = privkeyToWIF(id.PrivateEncryptionKey)
+	return
+}
+
+func (id *Identity) Hash() []byte {
+	sha := sha512.New()
+	ripemd := ripemd160.New()
+
+	sha.Write(id.PublicSigningKey.SerializeUncompressed())
+	sha.Write(id.PublicEncryptionKey.SerializeUncompressed())
+
+	ripemd.Write(sha.Sum(nil)) // take ripemd160 of required elements
+	return ripemd.Sum(nil)     // Get the hash
 }
 
 /*
@@ -50,75 +92,49 @@ func NewRandom(requiredInitialZeros, version, stream uint64) (*Identity, error) 
 		return nil, errors.New("minimum 1 initial zero needed")
 	}
 
-	// Declare appropriate variables
-	var pubSigningKey, pubEncryptionKey *btcec.PublicKey
-	var privSigningKey, privEncryptionKey *btcec.PrivateKey
+	// Create identity struct
+	var id *Identity
 
-	sha := sha512.New()
-	ripemd := ripemd160.New()
-	var hash []byte
+	var err error
 
 	// Create signing keys
-	privSigningKey, err := btcec.NewPrivateKey(btcec.S256())
+	id.PrivateSigningKey, err = btcec.NewPrivateKey(btcec.S256())
 	if err != nil {
 		return nil, errors.New("creating private signing key failed: " + err.Error())
 	}
-	pubSigningKey = privSigningKey.PubKey()
+	id.PublicSigningKey = id.PrivateSigningKey.PubKey()
 	initialZeroBytes := make([]byte, requiredInitialZeros) // used for comparison
 	// Go through loop to encryption keys with required num. of zeros
 	for {
 		// Generate encryption keys
-		privEncryptionKey, err = btcec.NewPrivateKey(btcec.S256())
+		id.PrivateEncryptionKey, err = btcec.NewPrivateKey(btcec.S256())
 		if err != nil { // Some unknown error
 			return nil, errors.New("creating private encryption key failed: " + err.Error())
 		}
-		pubEncryptionKey = privEncryptionKey.PubKey()
-
-		sha.Reset()
-		sha.Write(pubSigningKey.SerializeUncompressed())
-		sha.Write(pubEncryptionKey.SerializeUncompressed())
-
-		ripemd.Reset()
-		ripemd.Write(sha.Sum(nil)) // take ripemd160 of required elements
-		hash = ripemd.Sum(nil)     // Get the hash
+		id.PublicEncryptionKey = id.PrivateEncryptionKey.PubKey()
 
 		// We found our hash!
-		if bytes.Equal(hash[0:requiredInitialZeros], initialZeroBytes) {
+		if bytes.Equal(id.Hash()[0:requiredInitialZeros], initialZeroBytes) {
 			break // stop calculations
 		}
 	}
-	address, err := encodeAddress(version, stream, hash)
-	if err != nil {
-		return nil, errors.New("error encoding address: " + err.Error())
-	}
 
-	return &Identity{
-		Address:                 address,
-		PrivateSigningKeyWIF:    privkeyToWIF(privSigningKey),
-		PrivateEncryptionKeyWIF: privkeyToWIF(privEncryptionKey),
-		PublicEncryptionKey:     pubEncryptionKey,
-		PublicSigningKey:        pubSigningKey,
-		PrivateEncryptionKey:    privEncryptionKey,
-		PrivateSigningKey:       privSigningKey,
-	}, nil
+	return id, nil
 }
 
 /*
 Create identities based on a deterministic passphrase. Corresponding to lines
 */
-func NewDeterministic(passphrase string,
-	requiredInitialZeros, version, stream uint64) (*Identity, error) {
+func NewDeterministic(passphrase string, requiredInitialZeros uint64) (*Identity, error) {
 	if requiredInitialZeros < 1 { // Cannot take this
 		return nil, errors.New("minimum 1 initial zero needed")
 	}
 
-	// Declare appropriate variables
-	var pubSigningKey, pubEncryptionKey *btcec.PublicKey
-	var privSigningKey, privEncryptionKey *btcec.PrivateKey
+	// Create identity struct
+	var id *Identity
 
-	sha := sha512.New()
-	ripemd := ripemd160.New()
-	var hash, temp []byte
+	// temp variable
+	var temp []byte
 
 	// set the nonces
 	var signingKeyNonce, encryptionKeyNonce uint64 = 0, 1
@@ -127,44 +143,23 @@ func NewDeterministic(passphrase string,
 	// Go through loop to encryption keys with required num. of zeros
 	for {
 		// Create signing keys
-		temp = append([]byte(passphrase), encodeVarint(signingKeyNonce)...)
-		privSigningKey, pubSigningKey = btcec.PrivKeyFromBytes(btcec.S256(), temp[:32])
+		temp = append([]byte(passphrase), protocol.EncodeVarint(signingKeyNonce)...)
+		id.PrivateSigningKey, id.PublicSigningKey = btcec.PrivKeyFromBytes(btcec.S256(), temp[:32])
 
 		// Create encryption keys
-		temp = append([]byte(passphrase), encodeVarint(encryptionKeyNonce)...)
-		privEncryptionKey, pubEncryptionKey = btcec.PrivKeyFromBytes(btcec.S256(), temp[:32])
+		temp = append([]byte(passphrase), protocol.EncodeVarint(encryptionKeyNonce)...)
+		id.PrivateEncryptionKey, id.PublicEncryptionKey = btcec.PrivKeyFromBytes(btcec.S256(), temp[:32])
 
 		// Increment nonces
 		signingKeyNonce += 2
 		encryptionKeyNonce += 2
 
-		sha.Reset()
-		sha.Write(pubSigningKey.SerializeUncompressed())
-		sha.Write(pubEncryptionKey.SerializeUncompressed())
-
-		ripemd.Reset()
-		ripemd.Write(sha.Sum(nil)) // take ripemd160 of required elements
-		hash = ripemd.Sum(nil)     // Get the hash
-
 		// We found our hash!
-		if bytes.Equal(hash[0:requiredInitialZeros], initialZeroBytes) {
+		if bytes.Equal(id.Hash()[0:requiredInitialZeros], initialZeroBytes) {
 			break // stop calculations
 		}
 	}
-	address, err := encodeAddress(version, stream, hash)
-	if err != nil {
-		return nil, errors.New("error encoding address: " + err.Error())
-	}
-
-	return &Identity{
-		Address:                 address,
-		PrivateSigningKeyWIF:    privkeyToWIF(privSigningKey),
-		PrivateEncryptionKeyWIF: privkeyToWIF(privEncryptionKey),
-		PublicEncryptionKey:     pubEncryptionKey,
-		PublicSigningKey:        pubSigningKey,
-		PrivateEncryptionKey:    privEncryptionKey,
-		PrivateSigningKey:       privSigningKey,
-	}, nil
+	return id, nil
 }
 
 /*
@@ -208,78 +203,52 @@ func privkeyToWIF(prikey *btcec.PrivateKey) (wifstr string) {
 }
 
 /*
-Encode the address to a string that begins from BM- based on the hash.
-Based on encodeAddress in addresses.py
+Converts the wallet import format compatible key back to a private key
 */
-func encodeAddress(version, stream uint64, ripe []byte) (string, error) {
-	// Do some sanity checks
-	if version >= 2 && version <= 4 {
-		if len(ripe) != 20 {
-			return "", errors.New("Length of given ripe hash was not 20")
-		}
+func wifToPrivkey(wifstr string) (prikey *btcec.PrivateKey, err error) {
+	/* See https://en.bitcoin.it/wiki/Wallet_import_format */
+
+	// Convert the WIF key to a byte sequence
+	i, err := base58.DecodeToBig([]byte(wifstr))
+	if err != nil {
+		err = errors.New("base58 decoding of the private key failed")
+		return
 	}
-	if version >= 2 && version < 4 {
-		if bytes.Equal(ripe[0:2], []byte{0x00, 0x00}) {
-			ripe = ripe[2:]
-		}
-		if bytes.Equal(ripe[:1], []byte{0x00}) {
-			ripe = ripe[1:]
-		}
-	}
-	if version == 4 {
-		ripe = bytes.TrimLeft(ripe, string([]byte{0x00}))
+	wif_bytes := i.Bytes()
+
+	// Preliminary check
+	if wif_bytes[0] != 0x80 {
+		err = errors.New("invalid key, first byte not 0x80")
+		return
 	}
 
-	var binaryData bytes.Buffer
-	binaryData.Write(encodeVarint(version))
-	binaryData.Write(encodeVarint(stream))
-	binaryData.Write(ripe)
+	// Remove the initial 0x80 and the last 4 bytes of checksum
+	prikey_bytes := wif_bytes[1 : len(wif_bytes)-4]
 
-	sha := sha512.New()
-	sha.Write(binaryData.Bytes())
-	currentHash := sha.Sum(nil) // calc hash
-	sha.Write(currentHash)
-	checksum := sha.Sum(nil)[0:4] // calc checksum from another round of SHA512
+	// Start verifying the checksum of the key
+	checksum := wif_bytes[len(wif_bytes)-4:]
 
-	totalBin := append(currentHash, checksum...)
-	i := new(big.Int).SetBytes(totalBin)
-	return "BM-" + string(base58.EncodeBig(nil, i)), nil // done
-}
+	// Create a new SHA256 context
+	sha256_h := sha256.New()
 
-/*
-Decode the Bitmessage address to give the address version, stream number and data.
-*/
-func decodeAddress(address string) (version, stream uint64, ripe []byte, error) {
-	
-}
+	// SHA256 Hash
+	sha256_h.Reset()
+	sha256_h.Write(wif_bytes[:len(wif_bytes)-4]) // exclude the checksum
+	prikey_hash_1 := sha256_h.Sum(nil)
 
-/*
-Encode the integer according to the protocol specifications. From addresses.py and
-https://bitmessage.org/wiki/Protocol_specification
-*/
-func encodeVarint(x uint64) ([]byte) {
-	buf := new(bytes.Buffer)
-	if x < 253 {
-		binary.Write(buf, binary.BigEndian, uint8(x))
+	// Second round of hash
+	sha256_h.Reset()
+	sha256_h.Write(prikey_hash_1)
+	prikey_hash_2 := sha256_h.Sum(nil)
+
+	// Check if checksum matches
+	if !bytes.Equal(prikey_hash_2[0:4], checksum) {
+		err = errors.New("invalid checksum on key")
+		return
 	}
-	if x >= 253 && x < 65536 {
-		binary.Write(buf, binary.BigEndian, uint8(253))
-		binary.Write(buf, binary.BigEndian, uint16(x))
-	}
-	if x >= 65536 && x < 4294967296 {
-		binary.Write(buf, binary.BigEndian, uint8(254))
-		binary.Write(buf, binary.BigEndian, uint32(x))
-	}
-	if x >= 4294967296 {
-		binary.Write(buf, binary.BigEndian, uint8(255))
-		binary.Write(buf, binary.BigEndian, uint64(x))
-	}
-	return buf.Bytes()
-}
 
-/*
-Decode a varint (as specified in protocol specifications) to a uint64
-*/
-func decodeVarint([]byte buf) (uint64) {
-	
+	// All good, so create private key
+	prikey, _ = btcec.PrivKeyFromBytes(btcec.S256(), prikey_bytes)
+
+	return prikey, nil
 }

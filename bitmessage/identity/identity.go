@@ -12,9 +12,9 @@ import (
 
 	"code.google.com/p/go.crypto/ripemd160"
 	"github.com/conformal/btcec"
-	"github.com/tv42/base58"
 
 	"github.com/ishbir/bitmessage-go/bitmessage/protocol"
+	"github.com/ishbir/bitmessage-go/bitmessage/protocol/base58"
 )
 
 /*
@@ -87,13 +87,13 @@ Create an identity based on a random number generator, with the required number 
 initial zeros in front (minimum 1). Each initial zero requires exponentially more
 work. Corresponding to lines 79-99 of class_addressGenerator.py
 */
-func NewRandom(requiredInitialZeros, version, stream uint64) (*Identity, error) {
-	if requiredInitialZeros < 1 { // Cannot take this
+func NewRandom(initialZeros uint64) (*Identity, error) {
+	if initialZeros < 1 { // Cannot take this
 		return nil, errors.New("minimum 1 initial zero needed")
 	}
 
 	// Create identity struct
-	var id *Identity
+	var id = new(Identity)
 
 	var err error
 
@@ -103,7 +103,7 @@ func NewRandom(requiredInitialZeros, version, stream uint64) (*Identity, error) 
 		return nil, errors.New("creating private signing key failed: " + err.Error())
 	}
 	id.PublicSigningKey = id.PrivateSigningKey.PubKey()
-	initialZeroBytes := make([]byte, requiredInitialZeros) // used for comparison
+	initialZeroBytes := make([]byte, initialZeros) // used for comparison
 	// Go through loop to encryption keys with required num. of zeros
 	for {
 		// Generate encryption keys
@@ -114,7 +114,7 @@ func NewRandom(requiredInitialZeros, version, stream uint64) (*Identity, error) 
 		id.PublicEncryptionKey = id.PrivateEncryptionKey.PubKey()
 
 		// We found our hash!
-		if bytes.Equal(id.Hash()[0:requiredInitialZeros], initialZeroBytes) {
+		if bytes.Equal(id.Hash()[0:initialZeros], initialZeroBytes) {
 			break // stop calculations
 		}
 	}
@@ -125,13 +125,13 @@ func NewRandom(requiredInitialZeros, version, stream uint64) (*Identity, error) 
 /*
 Create identities based on a deterministic passphrase. Corresponding to lines
 */
-func NewDeterministic(passphrase string, requiredInitialZeros uint64) (*Identity, error) {
-	if requiredInitialZeros < 1 { // Cannot take this
+func NewDeterministic(passphrase string, initialZeros uint64) (*Identity, error) {
+	if initialZeros < 1 { // Cannot take this
 		return nil, errors.New("minimum 1 initial zero needed")
 	}
 
 	// Create identity struct
-	var id *Identity
+	var id = new(Identity)
 
 	// temp variable
 	var temp []byte
@@ -139,23 +139,29 @@ func NewDeterministic(passphrase string, requiredInitialZeros uint64) (*Identity
 	// set the nonces
 	var signingKeyNonce, encryptionKeyNonce uint64 = 0, 1
 
-	initialZeroBytes := make([]byte, requiredInitialZeros) // used for comparison
+	initialZeroBytes := make([]byte, initialZeros) // used for comparison
+	sha := sha512.New()
+
 	// Go through loop to encryption keys with required num. of zeros
 	for {
 		// Create signing keys
 		temp = append([]byte(passphrase), protocol.EncodeVarint(signingKeyNonce)...)
-		id.PrivateSigningKey, id.PublicSigningKey = btcec.PrivKeyFromBytes(btcec.S256(), temp[:32])
+		sha.Reset()
+		sha.Write(temp)
+		id.PrivateSigningKey, id.PublicSigningKey = btcec.PrivKeyFromBytes(btcec.S256(), sha.Sum(nil)[:32])
 
 		// Create encryption keys
 		temp = append([]byte(passphrase), protocol.EncodeVarint(encryptionKeyNonce)...)
-		id.PrivateEncryptionKey, id.PublicEncryptionKey = btcec.PrivKeyFromBytes(btcec.S256(), temp[:32])
+		sha.Reset()
+		sha.Write(temp)
+		id.PrivateEncryptionKey, id.PublicEncryptionKey = btcec.PrivKeyFromBytes(btcec.S256(), sha.Sum(nil)[:32])
 
 		// Increment nonces
 		signingKeyNonce += 2
 		encryptionKeyNonce += 2
 
 		// We found our hash!
-		if bytes.Equal(id.Hash()[0:requiredInitialZeros], initialZeroBytes) {
+		if bytes.Equal(id.Hash()[0:initialZeros], initialZeroBytes) {
 			break // stop calculations
 		}
 	}

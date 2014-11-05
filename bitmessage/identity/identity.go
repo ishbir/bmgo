@@ -124,6 +124,7 @@ func NewRandom(initialZeros uint64) (*Identity, error) {
 
 /*
 Create identities based on a deterministic passphrase. Corresponding to lines
+155-195
 */
 func NewDeterministic(passphrase string, initialZeros uint64) (*Identity, error) {
 	if initialZeros < 1 { // Cannot take this

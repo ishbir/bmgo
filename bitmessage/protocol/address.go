@@ -64,11 +64,15 @@ The assumption is that input address is properly formatted (according to specs).
 Based on decodeAddress from addresses.py
 */
 func DecodeAddress(address string) (version, stream uint64, ripe []byte, err error) {
-	address = strings.TrimSpace(address)
-	if address[:3] == "BM-" { // Clients should accept addresses without BM-
+	/*if address[:3] == "BM-" { // Clients should accept addresses without BM-
 		address = address[3:]
-	}
-	i, err := base58.DecodeToBig([]byte(address))
+	}*/
+	/*
+		decodeAddress says this but then UI checks for a missingbm status from
+		decodeAddress, which doesn't exist. So I choose NOT to accept addresses without
+		the initial BM-
+	*/
+	i, err := base58.DecodeToBig([]byte(address[3:]))
 	if err != nil {
 		err = errors.New("input address not valid base58 string")
 		return

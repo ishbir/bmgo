@@ -81,6 +81,6 @@ func DecodeVarint(b []byte) (uint64, uint64, error) {
 		return uint64(temp), 9, nil
 
 	default: // 8 bit integer, encodes 0 to 252
-		return uint64(uint8(b[0])), 1, nil // just the first byte
+		return uint64(b[0]), 1, nil // just the first byte
 	}
 }

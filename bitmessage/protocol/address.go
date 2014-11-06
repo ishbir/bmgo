@@ -9,7 +9,6 @@ import (
 	"crypto/sha512"
 	"errors"
 	"math/big"
-	"strings"
 
 	"github.com/ishbir/bitmessage-go/bitmessage/protocol/base58"
 )

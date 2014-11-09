@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 )
 
 /*
-Encode the integer according to the protocol specifications. From addresses.py and
-https://bitmessage.org/wiki/Protocol_specification
+Encode the integer according to the protocol specifications.
+https://bitmessage.org/wiki/Protocol_specification#Variable_length_integer
 */
 func EncodeVarint(x uint64) []byte {
 	buf := new(bytes.Buffer)
@@ -31,9 +32,9 @@ func EncodeVarint(x uint64) []byte {
 }
 
 /*
-Decode a varint (as specified in protocol specifications) to a uint64. Cannot
-supply less bytes than required to it. Excess is fine. It will return:
-(number as uint64, number of bytes it consumes, error)
+Decode a varint to a uint64. Cannot supply less bytes than required to it. Excess
+is fine. Returns: (number as uint64, number of bytes it consumes, error)
+https://bitmessage.org/wiki/Protocol_specification#Variable_length_integer
 */
 func DecodeVarint(b []byte) (uint64, uint64, error) {
 	if len(b) < 1 {
@@ -83,4 +84,48 @@ func DecodeVarint(b []byte) (uint64, uint64, error) {
 	default: // 8 bit integer, encodes 0 to 252
 		return uint64(b[0]), 1, nil // just the first byte
 	}
+}
+
+/*
+Encode a list of variable length integers.
+https://bitmessage.org/wiki/Protocol_specification#Variable_length_list_of_integers
+*/
+func EncodeVarintList(in []uint64) []byte {
+	var b bytes.Buffer
+	b.Write(EncodeVarint(uint64(len(in)))) // first is the count
+
+	for _, x := range in {
+		b.Write(EncodeVarint(x))
+	}
+
+	return b.Bytes()
+}
+
+/*
+Decode the list of variable length integers.
+Returns: (numbers as []uint64, number of bytes they consume, error)
+https://bitmessage.org/wiki/Protocol_specification#Variable_length_list_of_integers
+*/
+func DecodeVarintList(in []byte) ([]uint64, uint64, error) {
+	// get the length of the list
+	length, start, err := DecodeVarint(in)
+	if err != nil {
+		return nil, 0, errors.New("failed to decode length of list: " + err.Error())
+	}
+
+	list := make([]uint64, length)
+
+	var i uint64
+
+	for i = 0; i < length; i++ { // decode everything
+		x, t, err := DecodeVarint(in[start:])
+		if err != nil {
+			return nil, start, errors.New("failed to decode varint at pos " + fmt.Sprint(i) +
+				": " + err.Error())
+		}
+		list[i] = x
+		start += t // go to the next relevant position
+	}
+
+	return list, start, nil
 }

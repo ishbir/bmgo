@@ -5,6 +5,8 @@ import (
 	"crypto/sha512"
 	"encoding/binary"
 	"errors"
+	"net"
+	"time"
 	"unsafe"
 )
 
@@ -16,8 +18,8 @@ type messageHeader struct {
 }
 
 // Return the size of the message header
-func MessageHeaderSize() uint8 {
-	return unsafe.Sizeof(messageHeader{})
+func MessageHeaderSize() uint64 {
+	return uint64(unsafe.Sizeof(messageHeader{}))
 }
 
 /*
@@ -39,11 +41,9 @@ func CreateMessage(command string, payload []byte) ([]byte, error) {
 	copy(byteCommand[:], command)
 
 	// Write the header
-	err := binary.Write(&b, binary.BigEndian,
-		&packetHeader{0xE9BEB4D9, byteCommand, uint32(len(payload)), checksum})
-	if err != nil {
-		return nil, errors.New("failed to pack packet header: " + err.Error())
-	}
+	binary.Write(&b, binary.BigEndian,
+		&messageHeader{0xE9BEB4D9, byteCommand, uint32(len(payload)), checksum})
+
 	// Write the payload
 	b.Write(payload)
 
@@ -56,7 +56,7 @@ Decodes the header of the received message.
 func DecodeMessageHeader(raw []byte) (command string, payloadLength uint32,
 	checksum [4]byte, err error) {
 	b := bytes.NewReader(raw)
-	var header packetHeader
+	var header messageHeader
 
 	// Unpack struct
 	err = binary.Read(b, binary.BigEndian, &header)
@@ -71,19 +71,54 @@ func DecodeMessageHeader(raw []byte) (command string, payloadLength uint32,
 	return
 }
 
-type networkAddress struct {
-	Time     uint64 // 8 byte time
-	Stream   uint32
+type networkAddressLong struct {
+	Time   uint64 // 8 byte time
+	Stream uint32
+	networkAddressShort
+}
+
+// Only used for version messages
+type networkAddressShort struct {
 	Services uint64
-	IP       [16]byte
+	IP       net.IP
 	Port     uint16
 }
 
 type versionMessageFixed struct {
 	Version   uint32
 	Services  uint64
-	Timestamp uint64
-	Addr_Recv networkAddress
-	Addr_From networkAddress
+	Timestamp int64
+	Addr_Recv networkAddressShort
+	Addr_From networkAddressShort
 	Nonce     uint64 // Random nonce
+}
+
+/*
+Create a version message based on the input parameters.
+*/
+func CreateVersionMessage(serviceFlags uint64, nonce uint64, userAgent string, streams []uint64,
+	localHost net.IP, localPort uint16, remoteHost net.IP, remotePort uint16) []byte {
+	var b bytes.Buffer
+
+	msg := versionMessageFixed{
+		3, serviceFlags, time.Now().Unix(), networkAddressShort{
+			serviceFlags, remoteHost, remotePort, // serviceFlags ignored by remote host
+		}, networkAddressShort{
+			serviceFlags, localHost, localPort, // IP address ignored by host, actual IP connected
+		}, nonce,
+	}
+
+	binary.Write(&b, binary.BigEndian, &msg)
+	b.Write(EncodeVarstring(userAgent))
+	b.Write(EncodeVarintList(streams)) // only one stream
+	return b.Bytes()
+}
+
+/*
+Create a response to the version message (verack)
+*/
+func CreateAckMessage() []byte {
+	// error will always be 0 because verack is a valid, short command
+	m, _ := CreateMessage("verack", nil)
+	return m
 }

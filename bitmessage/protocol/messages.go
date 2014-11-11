@@ -6,7 +6,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"net"
-	"time"
 	"unsafe"
 )
 
@@ -72,7 +71,7 @@ func DecodeMessageHeader(raw []byte) (command string, payloadLength uint32,
 }
 
 type networkAddressLong struct {
-	Time   uint64 // 8 byte time
+	Time   uint64 // 8 byte UNIX time
 	Stream uint32
 	networkAddressShort
 }
@@ -87,7 +86,7 @@ type networkAddressShort struct {
 type versionMessageFixed struct {
 	Version   uint32
 	Services  uint64
-	Timestamp int64
+	Timestamp int64 // UNIX time
 	Addr_Recv networkAddressShort
 	Addr_From networkAddressShort
 	Nonce     uint64 // Random nonce
@@ -96,12 +95,13 @@ type versionMessageFixed struct {
 /*
 Create a version message based on the input parameters.
 */
-func CreateVersionMessage(serviceFlags uint64, nonce uint64, userAgent string, streams []uint64,
+func CreateVersionMessage(serviceFlags uint64, nonce uint64, time int64,
+	userAgent string, streams []uint64,
 	localHost net.IP, localPort uint16, remoteHost net.IP, remotePort uint16) []byte {
 	var b bytes.Buffer
 
 	msg := versionMessageFixed{
-		3, serviceFlags, time.Now().Unix(), networkAddressShort{
+		3, serviceFlags, time, networkAddressShort{
 			serviceFlags, remoteHost, remotePort, // serviceFlags ignored by remote host
 		}, networkAddressShort{
 			serviceFlags, localHost, localPort, // IP address ignored by host, actual IP connected

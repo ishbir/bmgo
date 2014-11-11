@@ -2,6 +2,7 @@ package protocol
 
 import (
 	"bytes"
+	"reflect"
 	"testing"
 )
 
@@ -67,10 +68,9 @@ func TestDecodeVarint(t *testing.T) {
 	// Test for errors
 	for _, pair := range varintInvalidLengthTests {
 		_, _, err := DecodeVarint(pair.byteValue)
-		if err.Error() != "varint not encoded with minimum size" {
-			t.Error(
-				"For", pair.byteValue,
-				"expected error: varint not encoded with minimum size,",
+		if err, ok := err.(*VarintMinimumSizeError); !ok {
+			t.Error("For", pair.byteValue,
+				"expected VarintMinimumSizeError",
 				"got error:", err.Error(),
 			)
 		}
@@ -85,4 +85,57 @@ func TestDecodeVarint(t *testing.T) {
 	}
 
 	// TODO: We haven't checked if less than ideal lengths are allowed or not
+}
+
+func TestEncodeVarintList(t *testing.T) {
+	listTest := make([]uint64, len(varintTests))
+	var b bytes.Buffer
+
+	for i, pair := range varintTests {
+		listTest[i] = pair.intValue
+		b.Write(pair.byteValue)
+	}
+
+	buf := EncodeVarintList(listTest)
+
+	// Start de-constructing
+	length, bytepos, err := DecodeVarint(buf)
+
+	if err != nil {
+		t.Error("got error:", err.Error())
+	}
+
+	if int(length) != len(listTest) {
+		t.Error(
+			"expected list length", len(listTest),
+			"got", length,
+		)
+	}
+
+	if !bytes.Equal(b.Bytes(), buf[bytepos:]) {
+		t.Error("items mismatch for list")
+	}
+}
+
+func TestDecodeVarintList(t *testing.T) {
+	listTest := make([]uint64, len(varintTests))
+
+	var b bytes.Buffer
+	b.Write(EncodeVarint(uint64(len(varintTests)))) // length of list
+
+	for i, pair := range varintTests {
+		listTest[i] = pair.intValue
+		b.Write(pair.byteValue) // items
+	}
+
+	list, length, err := DecodeVarintList(b.Bytes())
+	if err != nil {
+		t.Error("got error:", err.Error())
+	}
+	if int(length) != b.Len() {
+		t.Error("byte size mismatch")
+	}
+	if !reflect.DeepEqual(listTest, list) {
+		t.Error("list items not equal")
+	}
 }

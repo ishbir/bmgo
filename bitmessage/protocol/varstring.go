@@ -19,10 +19,16 @@ func EncodeVarstring(str string) []byte {
 /*
 Decodes the variable length string from a binary buffer to a string.
 */
-func DecodeVarstring(buf []byte) (string, error) {
+func DecodeVarstring(buf []byte) (string, uint64, error) {
 	length, start, err := DecodeVarint(buf)
 	if err != nil {
-		return "", errors.New("failed to decode varstring: " + err.Error())
+		return "", 0, errors.New("failed to decode varstring: " + err.Error())
 	}
-	return string(buf[start : start+length]), nil // read the next 'length' bytes
+	// check if we have enough bytes
+	if len(buf) < int(start+length) {
+		return "", start + length, &NotEnoughBytesError{int(start + length), len(buf)}
+	}
+
+	// read the next 'length' bytes
+	return string(buf[start : start+length]), start + length, nil
 }

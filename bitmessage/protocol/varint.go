@@ -44,40 +44,40 @@ func DecodeVarint(b []byte) (uint64, uint64, error) {
 	switch uint8(b[0]) {
 	case 253: // 16 bit integer, encodes 253 to 65535
 		if len(b) < 3 {
-			return 0, 0, errors.New("for 16 bit int, min length must be 3 bytes")
+			return 0, 0, &NotEnoughBytesError{3, len(b)}
 		}
 		var temp uint16
 		buf := bytes.NewReader(b[1:3])
 		binary.Read(buf, binary.BigEndian, &temp)
 
 		if temp < 253 {
-			return 0, 0, errors.New("varint not encoded with minimum size")
+			return 0, 0, &VarintMinimumSizeError{}
 		}
 		return uint64(temp), 3, nil
 
 	case 254: // 32 bit integer, encodes 65536 to 4294967295
 		if len(b) < 5 {
-			return 0, 0, errors.New("for 32 bit int, min length must be 5 bytes")
+			return 0, 0, &NotEnoughBytesError{5, len(b)}
 		}
 		var temp uint32
 		buf := bytes.NewReader(b[1:5])
 		binary.Read(buf, binary.BigEndian, &temp)
 
 		if temp < 65536 {
-			return 0, 0, errors.New("varint not encoded with minimum size")
+			return 0, 0, &VarintMinimumSizeError{}
 		}
 		return uint64(temp), 5, nil
 
 	case 255: // 64 bit integer, encodes 4294967296 to 18446744073709551615
 		if len(b) < 9 {
-			return 0, 0, errors.New("for 64 bit int, min length must be 9 bytes")
+			return 0, 0, &NotEnoughBytesError{9, len(b)}
 		}
 		var temp uint64
 		buf := bytes.NewReader(b[1:9])
 		binary.Read(buf, binary.BigEndian, &temp)
 
 		if temp < 4294967296 {
-			return 0, 0, errors.New("varint not encoded with minimum size")
+			return 0, 0, &VarintMinimumSizeError{}
 		}
 		return uint64(temp), 9, nil
 

@@ -117,7 +117,7 @@ func CreateVersionMessage(serviceFlags uint64, nonce uint64, time int64,
 /*
 Create a response to the version message (verack)
 */
-func CreateAckMessage() []byte {
+func CreateVerackMessage() []byte {
 	// error will always be 0 because verack is a valid, short command
 	m, _ := CreateMessage("verack", nil)
 	return m

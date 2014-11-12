@@ -73,3 +73,11 @@ func TestMessageHeaderSize(t *testing.T) {
 		t.Error("message header struct altered, size not 24")
 	}
 }
+
+func TestCreateVersionMessage(t *testing.T) {
+
+}
+
+func TestDecodeVersionMessage(t *testing.T) {
+
+}

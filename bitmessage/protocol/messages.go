@@ -9,6 +9,9 @@ import (
 	"unsafe"
 )
 
+// Included in every message
+const MessageMagic uint32 = 0xE9BEB4D9
+
 type messageHeader struct {
 	Magic         uint32   // 0xE9BEB4D9
 	Command       [12]byte // string
@@ -41,7 +44,7 @@ func CreateMessage(command string, payload []byte) ([]byte, error) {
 
 	// Write the header
 	binary.Write(&b, binary.BigEndian,
-		&messageHeader{0xE9BEB4D9, byteCommand, uint32(len(payload)), checksum})
+		&messageHeader{MessageMagic, byteCommand, uint32(len(payload)), checksum})
 
 	// Write the payload
 	b.Write(payload)
@@ -87,9 +90,15 @@ type versionMessageFixed struct {
 	Version   uint32
 	Services  uint64
 	Timestamp int64 // UNIX time
-	Addr_Recv networkAddressShort
-	Addr_From networkAddressShort
+	AddrRecv  networkAddressShort
+	AddrFrom  networkAddressShort
 	Nonce     uint64 // Random nonce
+}
+
+type VersionMessage struct {
+	versionMessageFixed
+	UserAgent string
+	Streams   []uint64
 }
 
 /*
@@ -112,6 +121,44 @@ func CreateVersionMessage(serviceFlags uint64, nonce uint64, time int64,
 	b.Write(EncodeVarstring(userAgent))
 	b.Write(EncodeVarintList(streams)) // only one stream
 	return b.Bytes()
+}
+
+/*
+Decode a version message from the given byte data.
+*/
+func DecodeVersionMessage(raw []byte) *VersionMessage {
+	b := bytes.NewReader(raw)
+	var msgFixed versionMessageFixed
+
+	// Unpack struct
+	err := binary.Read(b, binary.BigEndian, &msgFixed)
+	if err != nil {
+		err = errors.New("error unpacking version message: " + err.Error())
+		return nil
+	}
+
+	var msg VersionMessage
+	// load initial values
+	msg.versionMessageFixed = msgFixed
+
+	// we've already read the header
+	bytePos := uint64(unsafe.Sizeof(versionMessageFixed{}))
+
+	var strLen uint64
+	msg.UserAgent, strLen, err = DecodeVarstring(raw[bytePos:])
+	bytePos += strLen // go on to next items
+	if err != nil {
+		err = errors.New("error unpacking user agent string: " + err.Error())
+		return nil
+	}
+
+	msg.Streams, _, err = DecodeVarintList(raw[bytePos:])
+	if err != nil {
+		err = errors.New("error unpacking advertised streams: " + err.Error())
+		return nil
+	}
+
+	return &msg
 }
 
 /*

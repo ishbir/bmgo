@@ -27,10 +27,7 @@ var messageTests = []messageTestPair{ // generated using CreatePacket in shared.
 
 func TestCreateMessage(t *testing.T) {
 	for _, pair := range messageTests {
-		msg, err := CreateMessage(pair.command, pair.payload)
-		if err != nil {
-			t.Error("got error:", err.Error())
-		}
+		msg := CreateMessage(pair.command, pair.payload)
 		if !bytes.Equal(msg, pair.message) {
 			t.Error("for command", pair.command, "payload", pair.payload, "expected",
 				pair.message, "got", msg)
@@ -47,9 +44,9 @@ func TestCreateVerackMessage(t *testing.T) {
 	}
 }
 
-func TestDecodeMessageHeader(t *testing.T) {
+func TestUnpackMessageHeader(t *testing.T) {
 	for i, pair := range messageTests {
-		command, length, checksum, err := DecodeMessageHeader(pair.message)
+		command, length, checksum, err := UnpackMessageHeader(pair.message)
 		if err != nil {
 			t.Error("got error:", err.Error())
 		}
@@ -68,24 +65,39 @@ func TestDecodeMessageHeader(t *testing.T) {
 	}
 }
 
+// Verify the checksum
+func TestVerifyMessageChecksum(t *testing.T) {
+
+}
+
+/*
+START: Verify the correct sizes of all headers (make sure there are no accidental
+changes that can break the protocol)
+*/
+
+// Message packet
 func TestMessageHeaderSize(t *testing.T) {
 	if MessageHeaderSize() != 24 { // our struct definition was altered
 		t.Error("message header struct altered, size not 24")
 	}
 }
 
-func TestCreateVersionMessage(t *testing.T) {
+/*
+END: Header size verification
+*/
+
+func TestSerializeVersionMessage(t *testing.T) {
 
 }
 
-func TestUnpackVersionPayload(t *testing.T) {
+func TestDeserializeVersionMessage(t *testing.T) {
 
 }
 
-func TestCreateAddrMessage(t *testing.T) {
+func TestSerializeAddrMessage(t *testing.T) {
 
 }
 
-func TestUnpackAddrPayload(t *testing.T) {
+func TestDeserializeAddrMessage(t *testing.T) {
 
 }

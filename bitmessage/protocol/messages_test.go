@@ -81,3 +81,11 @@ func TestCreateVersionMessage(t *testing.T) {
 func TestDecodeVersionMessage(t *testing.T) {
 
 }
+
+func TestCreateAddrMessage(t *testing.T) {
+
+}
+
+func TestDecodeAddrMessage(t *testing.T) {
+
+}

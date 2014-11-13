@@ -5,19 +5,10 @@ import (
 	"crypto/sha512"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"net"
 	"unsafe"
 )
-
-// Included in every message
-const MessageMagic uint32 = 0xE9BEB4D9
-
-type messageHeader struct {
-	Magic         uint32   // 0xE9BEB4D9
-	Command       [12]byte // string
-	PayloadLength uint32
-	Checksum      [4]byte
-}
 
 // Return the size of the message header
 func MessageHeaderSize() uint64 {
@@ -71,34 +62,6 @@ func DecodeMessageHeader(raw []byte) (command string, payloadLength uint32,
 	payloadLength = header.PayloadLength
 	checksum = header.Checksum
 	return
-}
-
-type networkAddressLong struct {
-	Time   uint64 // 8 byte UNIX time
-	Stream uint32
-	networkAddressShort
-}
-
-// Only used for version messages
-type networkAddressShort struct {
-	Services uint64
-	IP       net.IP
-	Port     uint16
-}
-
-type versionMessageFixed struct {
-	Version   uint32
-	Services  uint64
-	Timestamp int64 // UNIX time
-	AddrRecv  networkAddressShort
-	AddrFrom  networkAddressShort
-	Nonce     uint64 // Random nonce
-}
-
-type VersionMessage struct {
-	versionMessageFixed
-	UserAgent string
-	Streams   []uint64
 }
 
 /*
@@ -168,4 +131,42 @@ func CreateVerackMessage() []byte {
 	// error will always be 0 because verack is a valid, short command
 	m, _ := CreateMessage("verack", nil)
 	return m
+}
+
+/*
+Create a message containing a list of known nodes
+*/
+func CreateAddrMessage(addresses []NetworkAddress) []byte {
+	var b bytes.Buffer
+	b.Write(EncodeVarint(uint64(len(addresses)))) // first item is the count
+
+	for _, addr := range addresses { // write them all!
+		binary.Write(&b, binary.BigEndian, &addr)
+	}
+
+	return b.Bytes()
+}
+
+/*
+Decode  a message containing a list of known nodes
+*/
+func DecodeAddrMessage(raw []byte) ([]NetworkAddress, error) {
+	count, start, err := DecodeVarint(raw)
+	if err != nil {
+		return nil, errors.New("failed to decode length of addr message: " + err.Error())
+	}
+
+	addresses := make([]NetworkAddress, count) // init output
+
+	b := bytes.NewReader(raw[start:]) // create reader
+	var i uint64
+	for i = 0; i < count; i++ { // set them up
+		err = binary.Read(b, binary.BigEndian, &addresses[i])
+		if err != nil {
+			return nil, errors.New("error decoding addr at pos " +
+				fmt.Sprint(i) + ": " + err.Error())
+		}
+	}
+
+	return addresses, nil
 }

@@ -83,21 +83,22 @@ func CreateVersionMessage(serviceFlags uint64, nonce uint64, time int64,
 	binary.Write(&b, binary.BigEndian, &msg)
 	b.Write(EncodeVarstring(userAgent))
 	b.Write(EncodeVarintList(streams)) // only one stream
-	return b.Bytes()
+
+	out, _ := CreateMessage("version", b.Bytes())
+	return out
 }
 
 /*
-Decode a version message from the given byte data.
+Unpack a version message from the given byte data of the payload.
 */
-func DecodeVersionMessage(raw []byte) *VersionMessage {
+func UnpackVersionPayload(raw []byte) (VersionMessage, error) {
 	b := bytes.NewReader(raw)
 	var msgFixed versionMessageFixed
 
 	// Unpack struct
 	err := binary.Read(b, binary.BigEndian, &msgFixed)
 	if err != nil {
-		err = errors.New("error unpacking version message: " + err.Error())
-		return nil
+		return nil, errors.New("error unpacking version message: " + err.Error())
 	}
 
 	var msg VersionMessage
@@ -111,17 +112,15 @@ func DecodeVersionMessage(raw []byte) *VersionMessage {
 	msg.UserAgent, strLen, err = DecodeVarstring(raw[bytePos:])
 	bytePos += strLen // go on to next items
 	if err != nil {
-		err = errors.New("error unpacking user agent string: " + err.Error())
-		return nil
+		return nil, errors.New("error unpacking user agent string: " + err.Error())
 	}
 
 	msg.Streams, _, err = DecodeVarintList(raw[bytePos:])
 	if err != nil {
-		err = errors.New("error unpacking advertised streams: " + err.Error())
-		return nil
+		return nil, errors.New("error unpacking advertised streams: " + err.Error())
 	}
 
-	return &msg
+	return msg, nil
 }
 
 /*
@@ -144,16 +143,17 @@ func CreateAddrMessage(addresses []NetworkAddress) []byte {
 		binary.Write(&b, binary.BigEndian, &addr)
 	}
 
-	return b.Bytes()
+	msg, _ := CreateMessage("addr", b.Bytes())
+	return msg
 }
 
 /*
-Decode  a message containing a list of known nodes
+Unpack the payload containing a list of known nodes
 */
-func DecodeAddrMessage(raw []byte) ([]NetworkAddress, error) {
+func UnpackAddrPayload(raw []byte) ([]NetworkAddress, error) {
 	count, start, err := DecodeVarint(raw)
 	if err != nil {
-		return nil, errors.New("failed to decode length of addr message: " + err.Error())
+		return nil, errors.New("failed to decode number of addresses: " + err.Error())
 	}
 
 	addresses := make([]NetworkAddress, count) // init output

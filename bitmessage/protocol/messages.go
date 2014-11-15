@@ -6,12 +6,11 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"unsafe"
 )
 
 // Return the size of the message header
-func MessageHeaderSize() uint64 {
-	return uint64(unsafe.Sizeof(messageHeader{}))
+func MessageHeaderSize() int {
+	return 24 // unsafe.Sizeof is not reliable, because of alignment, padding etc.
 }
 
 /*
@@ -57,6 +56,10 @@ func UnpackMessageHeader(raw []byte) (command string, payloadLength uint32,
 		return
 	}
 
+	if header.Magic != MessageMagic {
+		err = errors.New("invalid message magic: " + fmt.Sprint(header.Magic))
+	}
+
 	command = string(bytes.TrimRight(header.Command[:], "\x00")) // trim padding
 	payloadLength = header.PayloadLength
 	checksum = header.Checksum
@@ -98,7 +101,7 @@ func (msg *VersionMessage) Deserialize(raw []byte) error {
 	}
 
 	// we've already read the header
-	bytePos := uint64(unsafe.Sizeof(versionMessageFixed{}))
+	bytePos := uint64(b.Len())
 
 	var strLen uint64
 	msg.UserAgent, strLen, err = DecodeVarstring(raw[bytePos:])
@@ -130,6 +133,7 @@ func (msg *AddrMessage) Serialize() []byte {
 	b.Write(EncodeVarint(uint64(len(msg.Addresses)))) // first item is the count
 
 	for _, addr := range msg.Addresses { // write them all!
+
 		binary.Write(&b, binary.BigEndian, &addr)
 	}
 

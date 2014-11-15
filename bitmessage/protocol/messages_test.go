@@ -67,37 +67,21 @@ func TestUnpackMessageHeader(t *testing.T) {
 
 // Verify the checksum
 func TestVerifyMessageChecksum(t *testing.T) {
+	for i, pair := range messageTests {
+		// checksum is from bytes 20-24
+		var checksum [4]byte
+		copy(checksum[:], pair.message[20:24])
 
-}
-
-/*
-START: Verify the correct sizes of all headers (make sure there are no accidental
-changes that can break the protocol)
-*/
-
-// Message packet
-func TestMessageHeaderSize(t *testing.T) {
-	if MessageHeaderSize() != 24 { // our struct definition was altered
-		t.Error("message header struct altered, size not 24")
+		if !VerifyMessageChecksum(pair.message[24:], checksum) {
+			t.Error("for case", i+1, "checksum verification failed")
+		}
 	}
 }
 
-/*
-END: Header size verification
-*/
-
-func TestSerializeVersionMessage(t *testing.T) {
+func TestVersionMessage(t *testing.T) {
 
 }
 
-func TestDeserializeVersionMessage(t *testing.T) {
-
-}
-
-func TestSerializeAddrMessage(t *testing.T) {
-
-}
-
-func TestDeserializeAddrMessage(t *testing.T) {
+func TestAddrMessage(t *testing.T) {
 
 }

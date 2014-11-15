@@ -1,7 +1,5 @@
 package protocol
 
-import "net"
-
 // Interface defined for each and every message, making serializing/deserializing easier
 type MessageInterface interface {
 	// Serialize the message into a proper packet, ready for sending on network.
@@ -21,26 +19,28 @@ type messageHeader struct {
 	Checksum      [4]byte
 }
 
-// Network address structure used for addr
+// Network address structure used for VersionMessage.
+type NetworkAddressShort struct {
+	Services uint64
+	IP       [16]byte
+	Port     uint16
+}
+
+// Network address structure used for AddrMessage.
 type NetworkAddress struct {
 	Time   uint64 // 8 byte UNIX time
 	Stream uint32
 	NetworkAddressShort
 }
 
-// Network address structure used for version message
-type NetworkAddressShort struct {
-	Services uint64
-	IP       net.IP
-	Port     uint16
-}
-
+// Message sent by clients on connecting to each other.
 type VersionMessage struct {
 	versionMessageFixed
 	UserAgent string
 	Streams   []uint64
 }
 
+// Fixed sized header of the version message.
 type versionMessageFixed struct {
 	Version   uint32
 	Services  uint64
@@ -50,6 +50,7 @@ type versionMessageFixed struct {
 	Nonce     uint64 // Random nonce
 }
 
+// Message containing the list of known nodes.
 type AddrMessage struct {
 	Addresses []NetworkAddress
 }

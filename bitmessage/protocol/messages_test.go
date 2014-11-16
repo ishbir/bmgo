@@ -2,7 +2,9 @@ package protocol
 
 import (
 	"bytes"
+	"fmt"
 	"net"
+	"reflect"
 	"testing"
 )
 
@@ -79,6 +81,14 @@ func TestVerifyMessageChecksum(t *testing.T) {
 	}
 }
 
+func TestNetworkAddressShort(t *testing.T) {
+
+}
+
+func TestNetworkAddress(t *testing.T) {
+
+}
+
 func TestVersionMessage(t *testing.T) {
 	var (
 		time       int64  = 1416114153
@@ -109,7 +119,29 @@ func TestVersionMessage(t *testing.T) {
 		Streams:   VarintList{1},
 	}
 
-	_ = vMsg.Serialize()
+	testRes := vMsg.Serialize()
+	res := []byte{233, 190, 180, 217, 118, 101, 114, 115, 105, 111, 110, 0, 0, 0,
+		0, 0, 0, 0, 0, 96, 133, 59, 125, 112, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 1,
+		0, 0, 0, 0, 84, 104, 47, 233, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 255, 255, 192, 168, 0, 1, 32, 252, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 127, 0, 0, 1, 32, 252, 0, 0, 49, 159,
+		192, 120, 3, 41, 13, 47, 66, 77, 45, 71, 111, 58, 48, 46, 48, 46, 49, 47,
+		1, 1} // encoded using Python
+
+	if !bytes.Equal(testRes, res) {
+		t.Error("error encoding version message")
+	}
+
+	var vMsgTest VersionMessage
+	err := vMsgTest.Deserialize(res[MessageHeaderSize():]) // exclude the header
+	if err != nil {
+		t.Error("error decoding version message: " + err.Error())
+	}
+
+	if !reflect.DeepEqual(vMsg, vMsgTest) {
+		t.Error("version message not equal to test")
+		fmt.Printf("%+v\n", vMsgTest)
+	}
 }
 
 func TestAddrMessage(t *testing.T) {

@@ -2,6 +2,8 @@ package protocol
 
 import (
 	"bytes"
+	"fmt"
+	"io/ioutil"
 	"reflect"
 	"testing"
 )
@@ -33,9 +35,9 @@ var varintInvalidLengthTests = []varintTestPair{
 	{8956216, []byte{0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x88, 0xA9, 0x38}},
 }
 
-func TestEncodeVarint(t *testing.T) {
+func TestSerializeVarint(t *testing.T) {
 	for _, pair := range varintTests {
-		v := EncodeVarint(pair.intValue)
+		v := Varint(pair.intValue).Serialize()
 		if !bytes.Equal(v, pair.byteValue) {
 			t.Error(
 				"For", pair.intValue,
@@ -46,9 +48,11 @@ func TestEncodeVarint(t *testing.T) {
 	}
 }
 
-func TestDecodeVarint(t *testing.T) {
+func TestDeserializeVarint(t *testing.T) {
+	var v Varint
+
 	for _, pair := range varintTests {
-		v, _, err := DecodeVarint(pair.byteValue)
+		err := v.Deserialize(pair.byteValue)
 		if err != nil {
 			t.Error(
 				"For", pair.byteValue,
@@ -56,7 +60,7 @@ func TestDecodeVarint(t *testing.T) {
 			)
 			continue
 		}
-		if v != pair.intValue {
+		if uint64(v) != pair.intValue {
 			t.Error(
 				"For", pair.byteValue,
 				"expected", pair.intValue,
@@ -67,8 +71,8 @@ func TestDecodeVarint(t *testing.T) {
 
 	// Test for errors
 	for _, pair := range varintInvalidLengthTests {
-		_, _, err := DecodeVarint(pair.byteValue)
-		if err, ok := err.(*VarintMinimumSizeError); !ok {
+		err := v.Deserialize(pair.byteValue)
+		if err, ok := err.(VarintMinimumSizeError); !ok {
 			t.Error("For", pair.byteValue,
 				"expected VarintMinimumSizeError",
 				"got error:", err.Error(),
@@ -76,10 +80,10 @@ func TestDecodeVarint(t *testing.T) {
 		}
 	}
 
-	_, _, err := DecodeVarint([]byte{})
-	if err.Error() != "input byte slice cannot be nil" {
+	err := v.Deserialize([]byte{})
+	if err.Error() != "error reading first byte" {
 		t.Error(
-			"For empty byte slice, expected error: input byte slice cannot be nil,",
+			"For empty byte slice, expected error: error reading first byte,",
 			"got error:", err.Error(),
 		)
 	}
@@ -87,19 +91,22 @@ func TestDecodeVarint(t *testing.T) {
 	// TODO: We haven't checked if less than ideal lengths are allowed or not
 }
 
-func TestEncodeVarintList(t *testing.T) {
-	listTest := make([]uint64, len(varintTests))
+func TestSerializeVarintList(t *testing.T) {
+	listTest := make(VarintList, len(varintTests))
 	var b bytes.Buffer
 
 	for i, pair := range varintTests {
-		listTest[i] = pair.intValue
+		listTest[i] = Varint(pair.intValue)
 		b.Write(pair.byteValue)
 	}
 
-	buf := EncodeVarintList(listTest)
+	byteData := VarintList(listTest).Serialize()
 
 	// Start de-constructing
-	length, bytepos, err := DecodeVarint(buf)
+	buf := bytes.NewReader(byteData)
+
+	var length Varint
+	err := length.DeserializeReader(buf)
 
 	if err != nil {
 		t.Error("got error:", err.Error())
@@ -112,30 +119,29 @@ func TestEncodeVarintList(t *testing.T) {
 		)
 	}
 
-	if !bytes.Equal(b.Bytes(), buf[bytepos:]) {
+	res, _ := ioutil.ReadAll(buf)
+	if !bytes.Equal(b.Bytes(), res) {
 		t.Error("items mismatch for list")
 	}
 }
 
-func TestDecodeVarintList(t *testing.T) {
-	listTest := make([]uint64, len(varintTests))
+func TestDeserializeVarintList(t *testing.T) {
+	listTest := make(VarintList, len(varintTests))
 
 	var b bytes.Buffer
-	b.Write(EncodeVarint(uint64(len(varintTests)))) // length of list
+	b.Write(Varint(len(varintTests)).Serialize()) // length of list
 
 	for i, pair := range varintTests {
-		listTest[i] = pair.intValue
+		listTest[i] = Varint(pair.intValue)
 		b.Write(pair.byteValue) // items
 	}
 
-	list, length, err := DecodeVarintList(b.Bytes())
+	var list VarintList
+	err := list.Deserialize(b.Bytes())
 	if err != nil {
 		t.Error("got error:", err.Error())
 	}
-	if int(length) != b.Len() {
-		t.Error("byte size mismatch")
-	}
 	if !reflect.DeepEqual(listTest, list) {
-		t.Error("list items not equal")
+		t.Error(fmt.Sprintf("list items not equal, listTest: %v, list: %v", listTest, list))
 	}
 }

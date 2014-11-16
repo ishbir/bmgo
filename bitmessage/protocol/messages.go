@@ -6,6 +6,8 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
+	"net"
 )
 
 // Return the size of the message header
@@ -75,15 +77,98 @@ func VerifyMessageChecksum(payload []byte, checksum [4]byte) bool {
 	return bytes.Equal(checksum[:], t[:4]) // check for equality
 }
 
+func (addr *NetworkAddressShort) Serialize() []byte {
+	var b bytes.Buffer
+
+	binary.Write(&b, binary.BigEndian, addr.Services)
+	binary.Write(&b, binary.BigEndian, addr.IP)
+	binary.Write(&b, binary.BigEndian, addr.Port)
+
+	return b.Bytes()
+}
+
+func (addr *NetworkAddressShort) Deserialize(raw []byte) error {
+	b := bytes.NewReader(raw)
+	return addr.DeserializeReader(b)
+}
+
+func (addr *NetworkAddressShort) DeserializeReader(b io.Reader) error {
+	addr.IP = net.IP(make([]byte, 16))
+
+	err := binary.Read(b, binary.BigEndian, &addr.Services)
+	if err != nil {
+		return DeserializeFailedError("services")
+	}
+	err = binary.Read(b, binary.BigEndian, &addr.IP)
+	if err != nil {
+		return DeserializeFailedError("IP address")
+	}
+	err = binary.Read(b, binary.BigEndian, &addr.Port)
+	if err != nil {
+		return DeserializeFailedError("port")
+	}
+
+	return nil
+}
+
+func (addr *NetworkAddress) Serialize() []byte {
+	var b bytes.Buffer
+
+	binary.Write(&b, binary.BigEndian, addr.Time)
+	binary.Write(&b, binary.BigEndian, addr.Stream)
+	binary.Write(&b, binary.BigEndian, addr.Services)
+	binary.Write(&b, binary.BigEndian, addr.IP)
+	binary.Write(&b, binary.BigEndian, addr.Port)
+
+	return b.Bytes()
+}
+
+func (addr *NetworkAddress) Deserialize(raw []byte) error {
+	b := bytes.NewReader(raw)
+	return addr.DeserializeReader(b)
+}
+
+func (addr *NetworkAddress) DeserializeReader(b io.Reader) error {
+	addr.IP = net.IP(make([]byte, 16))
+
+	err := binary.Read(b, binary.BigEndian, &addr.Time)
+	if err != nil {
+		return DeserializeFailedError("time")
+	}
+	err = binary.Read(b, binary.BigEndian, &addr.Stream)
+	if err != nil {
+		return DeserializeFailedError("stream")
+	}
+	err = binary.Read(b, binary.BigEndian, &addr.Services)
+	if err != nil {
+		return DeserializeFailedError("services")
+	}
+	err = binary.Read(b, binary.BigEndian, &addr.IP)
+	if err != nil {
+		return DeserializeFailedError("IP address")
+	}
+	err = binary.Read(b, binary.BigEndian, &addr.Port)
+	if err != nil {
+		return DeserializeFailedError("port")
+	}
+
+	return nil
+}
+
 /*
 Create a version message based on the input parameters.
 */
 func (msg *VersionMessage) Serialize() []byte {
 	var b bytes.Buffer
 
-	binary.Write(&b, binary.BigEndian, &msg.versionMessageFixed)
-	b.Write(EncodeVarstring(msg.UserAgent))
-	b.Write(EncodeVarintList(msg.Streams))
+	binary.Write(&b, binary.BigEndian, msg.Version)
+	binary.Write(&b, binary.BigEndian, msg.Services)
+	binary.Write(&b, binary.BigEndian, msg.Timestamp)
+	b.Write(msg.AddrRecv.Serialize())
+	b.Write(msg.AddrFrom.Serialize())
+	binary.Write(&b, binary.BigEndian, msg.Nonce)
+	b.Write(msg.UserAgent.Serialize())
+	b.Write(msg.Streams.Serialize())
 
 	return CreateMessage("version", b.Bytes())
 }
@@ -93,26 +178,41 @@ Unpack a version message from the given byte data of the payload.
 */
 func (msg *VersionMessage) Deserialize(raw []byte) error {
 	b := bytes.NewReader(raw)
+	return msg.DeserializeReader(b)
+}
 
-	// Unpack struct
-	err := binary.Read(b, binary.BigEndian, &msg.versionMessageFixed)
+func (msg *VersionMessage) DeserializeReader(b io.Reader) error {
+	err := binary.Read(b, binary.BigEndian, &msg.Version)
 	if err != nil {
-		return errors.New("error unpacking version message: " + err.Error())
+		return DeserializeFailedError("version")
 	}
-
-	// we've already read the header
-	bytePos := uint64(b.Len())
-
-	var strLen uint64
-	msg.UserAgent, strLen, err = DecodeVarstring(raw[bytePos:])
-	bytePos += strLen // go on to next items
+	err = binary.Read(b, binary.BigEndian, &msg.Services)
 	if err != nil {
-		return errors.New("error unpacking user agent string: " + err.Error())
+		return DeserializeFailedError("services")
 	}
-
-	msg.Streams, _, err = DecodeVarintList(raw[bytePos:])
+	err = binary.Read(b, binary.BigEndian, &msg.Timestamp)
 	if err != nil {
-		return errors.New("error unpacking advertised streams: " + err.Error())
+		return DeserializeFailedError("timestamp")
+	}
+	err = msg.AddrRecv.DeserializeReader(b)
+	if err != nil {
+		return DeserializeFailedError("addrrecv: " + err.Error())
+	}
+	err = msg.AddrFrom.DeserializeReader(b)
+	if err != nil {
+		return DeserializeFailedError("addrfrom: " + err.Error())
+	}
+	err = binary.Read(b, binary.BigEndian, &msg.Nonce)
+	if err != nil {
+		return DeserializeFailedError("nonce")
+	}
+	err = msg.UserAgent.DeserializeReader(b)
+	if err != nil {
+		return DeserializeFailedError("useragent")
+	}
+	err = msg.Streams.DeserializeReader(b)
+	if err != nil {
+		return DeserializeFailedError("streams")
 	}
 
 	return nil
@@ -130,11 +230,10 @@ Create a message containing a list of known nodes
 */
 func (msg *AddrMessage) Serialize() []byte {
 	var b bytes.Buffer
-	b.Write(EncodeVarint(uint64(len(msg.Addresses)))) // first item is the count
+	b.Write(Varint(len(msg.Addresses)).Serialize()) // first item is the count
 
 	for _, addr := range msg.Addresses { // write them all!
-
-		binary.Write(&b, binary.BigEndian, &addr)
+		b.Write(addr.Serialize())
 	}
 
 	return CreateMessage("addr", b.Bytes())
@@ -144,17 +243,23 @@ func (msg *AddrMessage) Serialize() []byte {
 Unpack the payload containing a list of known nodes
 */
 func (msg *AddrMessage) Deserialize(raw []byte) error {
-	count, start, err := DecodeVarint(raw)
+	buf := bytes.NewReader(raw)
+	return msg.DeserializeReader(buf)
+}
+
+func (msg *AddrMessage) DeserializeReader(buf io.Reader) error {
+	var count Varint
+
+	err := count.DeserializeReader(buf)
 	if err != nil {
 		return errors.New("failed to decode number of addresses: " + err.Error())
 	}
 
-	msg.Addresses = make([]NetworkAddress, count) // init output
+	msg.Addresses = make([]NetworkAddress, uint64(count)) // init output
 
-	b := bytes.NewReader(raw[start:]) // create reader
 	var i uint64
-	for i = 0; i < count; i++ { // set them up
-		err = binary.Read(b, binary.BigEndian, &msg.Addresses[i])
+	for i = 0; i < uint64(count); i++ { // set them up
+		err = binary.Read(buf, binary.BigEndian, &msg.Addresses[i])
 		if err != nil {
 			return errors.New("error decoding addr at pos " +
 				fmt.Sprint(i) + ": " + err.Error())

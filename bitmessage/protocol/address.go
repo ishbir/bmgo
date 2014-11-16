@@ -10,7 +10,7 @@ import (
 	"errors"
 	"math/big"
 
-	"github.com/ishbir/bitmessage-go/bitmessage/protocol/base58"
+	"github.com/ishbir/bmgo/bitmessage/protocol/base58"
 )
 
 /*
@@ -40,8 +40,8 @@ func EncodeAddress(version, stream uint64, ripe []byte) (string, error) {
 	}
 
 	var binaryData bytes.Buffer
-	binaryData.Write(EncodeVarint(version))
-	binaryData.Write(EncodeVarint(stream))
+	binaryData.Write(Varint(version).Serialize())
+	binaryData.Write(Varint(stream).Serialize())
 	binaryData.Write(ripe)
 
 	sha := sha512.New()
@@ -93,19 +93,29 @@ func DecodeAddress(address string) (version, stream uint64, ripe []byte, err err
 		return
 	}
 
-	version, x, err := DecodeVarint(data[:9]) // get the version
+	buf := bytes.NewReader(data)
+	var v, s Varint
+
+	err = v.DeserializeReader(buf) // get the version
 	if err != nil {
-		err = errors.New("failed to decode version of bitmessage address: " +
-			err.Error())
+		err = DeserializeFailedError("bitmessage address: " + err.Error())
 		return
 	}
-	stream, y, err := DecodeVarint(data[x : x+9]) // exclude first x bytes, read next 9 bytes
+	version = uint64(v)
+
+	err = s.DeserializeReader(buf) // exclude first x bytes, read next 9 bytes
 	if err != nil {
-		err = errors.New("failed to decode stream number of bitmessage address: " +
-			err.Error())
+		err = DeserializeFailedError("stream number: " + err.Error())
 		return
 	}
-	ripe = data[x+y : len(data)-4] // exclude bytes already read and checksum
+	stream = uint64(s)
+
+	ripe = make([]byte, buf.Len()-4) // exclude bytes already read and checksum
+	n, err := buf.Read(ripe)
+	if n != len(ripe) || err != nil {
+		err = DeserializeFailedError("ripe: " + err.Error())
+		return
+	}
 
 	switch version {
 	case 2:

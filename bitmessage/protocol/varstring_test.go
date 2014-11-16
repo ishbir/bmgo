@@ -20,9 +20,9 @@ var varstringTests = []varstringTestPair{
 		0x20, 0x79, 0x6f, 0x75, 0x3f}},
 }
 
-func TestEncodeVarstring(t *testing.T) {
+func TestSerializeVarstring(t *testing.T) {
 	for _, pair := range varstringTests {
-		v := EncodeVarstring(pair.strValue)
+		v := Varstring(pair.strValue).Serialize()
 		if !bytes.Equal(v, pair.byteValue) {
 			t.Error(
 				"For", pair.strValue,
@@ -33,9 +33,11 @@ func TestEncodeVarstring(t *testing.T) {
 	}
 }
 
-func TestDecodeVarstring(t *testing.T) {
+func TestDeserializeVarstring(t *testing.T) {
+	var v Varstring
+
 	for _, pair := range varstringTests {
-		v, _, err := DecodeVarstring(pair.byteValue)
+		err := v.Deserialize(pair.byteValue)
 		if err != nil {
 			t.Error(
 				"For", pair.byteValue,
@@ -43,7 +45,7 @@ func TestDecodeVarstring(t *testing.T) {
 			)
 			continue
 		}
-		if v != pair.strValue {
+		if string(v) != pair.strValue {
 			t.Error(
 				"For", pair.byteValue,
 				"expected", pair.strValue,
@@ -53,8 +55,8 @@ func TestDecodeVarstring(t *testing.T) {
 	}
 
 	// less bytes than are required
-	_, _, err := DecodeVarstring([]byte{0x80, 0x65, 0x35, 0x48})
-	if err, ok := err.(*NotEnoughBytesError); !ok {
+	err := v.Deserialize([]byte{0x80, 0x65, 0x35, 0x48})
+	if err, ok := err.(NotEnoughBytesError); !ok {
 		t.Error(
 			"Expected NotEnoughBytesError, got", err.Error(),
 		)

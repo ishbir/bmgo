@@ -2,33 +2,43 @@ package protocol
 
 import (
 	"bytes"
-	"errors"
+	"io"
 )
 
+type Varstring string
+
 /*
-Encode a variable length string according to protocol specifications.
+Serialize a variable length string according to protocol specifications.
 */
-func EncodeVarstring(str string) []byte {
+func (str Varstring) Serialize() []byte {
 	var b bytes.Buffer
-	strByte := []byte(str)
-	b.Write(EncodeVarint(uint64(len(strByte))))
+	strByte := []byte(string(str))
+	b.Write(Varint(len(strByte)).Serialize())
 	b.Write(strByte)
 	return b.Bytes()
 }
 
 /*
-Decodes the variable length string from a binary buffer to a string.
+Deserialize the variable length string from a binary buffer to a string.
 */
-func DecodeVarstring(buf []byte) (string, uint64, error) {
-	length, start, err := DecodeVarint(buf)
+func (str *Varstring) Deserialize(raw []byte) error {
+	buf := bytes.NewReader(raw)
+	return str.DeserializeReader(buf)
+}
+
+func (str *Varstring) DeserializeReader(buf io.Reader) error {
+	var length Varint
+	err := length.DeserializeReader(buf)
 	if err != nil {
-		return "", 0, errors.New("failed to decode varstring: " + err.Error())
-	}
-	// check if we have enough bytes
-	if len(buf) < int(start+length) {
-		return "", start + length, &NotEnoughBytesError{int(start + length), len(buf)}
+		return DeserializeFailedError("length of varstring: " + err.Error())
 	}
 
-	// read the next 'length' bytes
-	return string(buf[start : start+length]), start + length, nil
+	temp := make([]byte, uint64(length))
+	n, err := io.ReadAtLeast(buf, temp, int(length))
+	if n != int(length) || err != nil { // we don't have enough bytes
+		return NotEnoughBytesError(int(length))
+	}
+
+	*str = Varstring(temp)
+	return nil
 }

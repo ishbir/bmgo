@@ -5,14 +5,20 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 )
 
+type Varint uint64
+type VarintList []Varint
+
 /*
-Encode the integer according to the protocol specifications.
+Serialize the integer according to the protocol specifications.
 https://bitmessage.org/wiki/Protocol_specification#Variable_length_integer
 */
-func EncodeVarint(x uint64) []byte {
+func (i Varint) Serialize() []byte {
 	buf := new(bytes.Buffer)
+	x := uint64(i)
+
 	if x < 253 {
 		binary.Write(buf, binary.BigEndian, uint8(x))
 	}
@@ -31,58 +37,63 @@ func EncodeVarint(x uint64) []byte {
 	return buf.Bytes()
 }
 
+func (i *Varint) Deserialize(raw []byte) error {
+	b := bytes.NewReader(raw)
+	return i.DeserializeReader(b)
+}
+
 /*
 Decode a varint to a uint64. Cannot supply less bytes than required to it. Excess
 is fine. Returns: (number as uint64, number of bytes it consumes, error)
 https://bitmessage.org/wiki/Protocol_specification#Variable_length_integer
 */
-func DecodeVarint(b []byte) (uint64, uint64, error) {
-	if len(b) < 1 {
-		return 0, 0, errors.New("input byte slice cannot be nil")
+func (i *Varint) DeserializeReader(b io.Reader) error {
+	var first [1]byte
+	n, err := io.ReadAtLeast(b, first[:], 1)
+	if n != 1 || err != nil {
+		return errors.New("error reading first byte")
 	}
 
-	switch uint8(b[0]) {
+	switch int(first[0]) {
 	case 253: // 16 bit integer, encodes 253 to 65535
-		if len(b) < 3 {
-			return 0, 0, &NotEnoughBytesError{3, len(b)}
-		}
 		var temp uint16
-		buf := bytes.NewReader(b[1:3])
-		binary.Read(buf, binary.BigEndian, &temp)
-
-		if temp < 253 {
-			return 0, 0, &VarintMinimumSizeError{}
+		err = binary.Read(b, binary.BigEndian, &temp)
+		if err != nil {
+			return NotEnoughBytesError(3) // no other reason for failure
 		}
-		return uint64(temp), 3, nil
+		if temp < 253 {
+			return VarintMinimumSizeError{}
+		}
+		*i = Varint(temp)
+		return nil
 
 	case 254: // 32 bit integer, encodes 65536 to 4294967295
-		if len(b) < 5 {
-			return 0, 0, &NotEnoughBytesError{5, len(b)}
-		}
 		var temp uint32
-		buf := bytes.NewReader(b[1:5])
-		binary.Read(buf, binary.BigEndian, &temp)
-
-		if temp < 65536 {
-			return 0, 0, &VarintMinimumSizeError{}
+		err = binary.Read(b, binary.BigEndian, &temp)
+		if err != nil {
+			return NotEnoughBytesError(5) // no other reason for failure
 		}
-		return uint64(temp), 5, nil
+		if temp < 65536 {
+			return VarintMinimumSizeError{}
+		}
+		*i = Varint(temp)
+		return nil
 
 	case 255: // 64 bit integer, encodes 4294967296 to 18446744073709551615
-		if len(b) < 9 {
-			return 0, 0, &NotEnoughBytesError{9, len(b)}
-		}
 		var temp uint64
-		buf := bytes.NewReader(b[1:9])
-		binary.Read(buf, binary.BigEndian, &temp)
-
-		if temp < 4294967296 {
-			return 0, 0, &VarintMinimumSizeError{}
+		err = binary.Read(b, binary.BigEndian, &temp)
+		if err != nil {
+			return NotEnoughBytesError(9) // no other reason for failure
 		}
-		return uint64(temp), 9, nil
+		if temp < 4294967296 {
+			return VarintMinimumSizeError{}
+		}
+		*i = Varint(temp)
+		return nil
 
 	default: // 8 bit integer, encodes 0 to 252
-		return uint64(b[0]), 1, nil // just the first byte
+		*i = Varint(first[0]) // just the first byte
+		return nil
 	}
 }
 
@@ -90,15 +101,20 @@ func DecodeVarint(b []byte) (uint64, uint64, error) {
 Encode a list of variable length integers.
 https://bitmessage.org/wiki/Protocol_specification#Variable_length_list_of_integers
 */
-func EncodeVarintList(in []uint64) []byte {
+func (i VarintList) Serialize() []byte {
 	var b bytes.Buffer
-	b.Write(EncodeVarint(uint64(len(in)))) // first is the count
+	b.Write(Varint(len(i)).Serialize()) // first is the count
 
-	for _, x := range in {
-		b.Write(EncodeVarint(x))
+	for _, x := range i {
+		b.Write(x.Serialize())
 	}
 
 	return b.Bytes()
+}
+
+func (i *VarintList) Deserialize(raw []byte) error {
+	b := bytes.NewReader(raw)
+	return i.DeserializeReader(b)
 }
 
 /*
@@ -106,26 +122,27 @@ Decode the list of variable length integers.
 Returns: (numbers as []uint64, number of bytes they consume, error)
 https://bitmessage.org/wiki/Protocol_specification#Variable_length_list_of_integers
 */
-func DecodeVarintList(in []byte) ([]uint64, uint64, error) {
+func (i *VarintList) DeserializeReader(b io.Reader) error {
 	// get the length of the list
-	length, start, err := DecodeVarint(in)
+	var length Varint
+	err := length.DeserializeReader(b)
 	if err != nil {
-		return nil, 0, errors.New("failed to decode length of list: " + err.Error())
+		return errors.New("failed to decode length of list: " + err.Error())
 	}
 
-	list := make([]uint64, length)
+	*i = make(VarintList, uint64(length))
 
-	var i uint64
+	var j uint64
+	var x Varint
 
-	for i = 0; i < length; i++ { // decode everything
-		x, t, err := DecodeVarint(in[start:])
+	for j = 0; j < uint64(length); j++ { // decode everything
+		err := x.DeserializeReader(b)
 		if err != nil {
-			return nil, start, errors.New("failed to decode varint at pos " + fmt.Sprint(i) +
+			return errors.New("failed to decode varint at pos " + fmt.Sprint(j) +
 				": " + err.Error())
 		}
-		list[i] = x
-		start += t // go to the next relevant position
+		(*i)[j] = x
 	}
 
-	return list, start, nil
+	return nil
 }

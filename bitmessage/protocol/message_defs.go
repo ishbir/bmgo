@@ -1,12 +1,6 @@
 package protocol
 
-// Interface defined for each and every message, making serializing/deserializing easier
-type MessageInterface interface {
-	// Serialize the message into a proper packet, ready for sending on network.
-	Serialize() []byte
-	// Deserialize the payload part of the message into the struct.
-	Deserialize([]byte) error
-}
+import "net"
 
 // Included in every message
 const MessageMagic uint32 = 0xE9BEB4D9
@@ -22,32 +16,29 @@ type messageHeader struct {
 // Network address structure used for VersionMessage.
 type NetworkAddressShort struct {
 	Services uint64
-	IP       [16]byte
+	IP       net.IP
 	Port     uint16
 }
 
 // Network address structure used for AddrMessage.
 type NetworkAddress struct {
-	Time   uint64 // 8 byte UNIX time
-	Stream uint32
-	NetworkAddressShort
+	Time     int64 // 8 byte UNIX time
+	Stream   uint32
+	Services uint64
+	IP       net.IP
+	Port     uint16
 }
 
 // Message sent by clients on connecting to each other.
 type VersionMessage struct {
-	versionMessageFixed
-	UserAgent string
-	Streams   []uint64
-}
-
-// Fixed sized header of the version message.
-type versionMessageFixed struct {
 	Version   uint32
-	Services  uint64
+	Services  int64
 	Timestamp int64 // UNIX time
 	AddrRecv  NetworkAddressShort
 	AddrFrom  NetworkAddressShort
 	Nonce     uint64 // Random nonce
+	UserAgent Varstring
+	Streams   VarintList
 }
 
 // Message containing the list of known nodes.

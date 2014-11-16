@@ -2,6 +2,7 @@ package protocol
 
 import (
 	"bytes"
+	"net"
 	"testing"
 )
 
@@ -79,7 +80,36 @@ func TestVerifyMessageChecksum(t *testing.T) {
 }
 
 func TestVersionMessage(t *testing.T) {
+	var (
+		time       int64  = 1416114153
+		remoteHost        = net.ParseIP("192.168.0.1")
+		remotePort uint16 = 8444
+		localPort  uint16 = 8444
+		// Ignored by the remote host. The actual remote connected IP used.
+		localHost        = net.ParseIP("127.0.0.1")
+		nonce     uint64 = 54562198651689
+	)
 
+	vMsg := VersionMessage{
+		Version:   3,
+		Services:  1,
+		Timestamp: time,
+		AddrRecv: NetworkAddressShort{
+			Services: 1,
+			IP:       remoteHost,
+			Port:     remotePort,
+		},
+		AddrFrom: NetworkAddressShort{
+			Services: 1,
+			IP:       localHost,
+			Port:     localPort, // local port
+		},
+		Nonce:     nonce, // Random value
+		UserAgent: Varstring("/BM-Go:0.0.1/"),
+		Streams:   VarintList{1},
+	}
+
+	_ = vMsg.Serialize()
 }
 
 func TestAddrMessage(t *testing.T) {

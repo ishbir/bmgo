@@ -8,13 +8,21 @@ import (
 	"io"
 )
 
+/*
+Integer can be encoded depending on the represented value to save space. Variable
+length integers always precede an array/vector of a type of data that may vary in
+length. Varints MUST use the minimum possible number of bytes to encode a value.
+For example; the value 6 can be encoded with one byte therefore a varint that uses
+three bytes to encode the value 6 is malformed and the decoding task must be aborted.
+*/
 type Varint uint64
-type VarintList []Varint
 
 /*
-Serialize the integer according to the protocol specifications.
-https://bitmessage.org/wiki/Protocol_specification#Variable_length_integer
+n integers can be stored using n+1 variable length integers where the first var_int
+equals n.
 */
+type VarintList []Varint
+
 func (i Varint) Serialize() []byte {
 	buf := new(bytes.Buffer)
 	x := uint64(i)
@@ -42,11 +50,6 @@ func (i *Varint) Deserialize(raw []byte) error {
 	return i.DeserializeReader(b)
 }
 
-/*
-Decode a varint to a uint64. Cannot supply less bytes than required to it. Excess
-is fine. Returns: (number as uint64, number of bytes it consumes, error)
-https://bitmessage.org/wiki/Protocol_specification#Variable_length_integer
-*/
 func (i *Varint) DeserializeReader(b io.Reader) error {
 	var first [1]byte
 	n, err := io.ReadAtLeast(b, first[:], 1)
@@ -97,10 +100,6 @@ func (i *Varint) DeserializeReader(b io.Reader) error {
 	}
 }
 
-/*
-Encode a list of variable length integers.
-https://bitmessage.org/wiki/Protocol_specification#Variable_length_list_of_integers
-*/
 func (i VarintList) Serialize() []byte {
 	var b bytes.Buffer
 	b.Write(Varint(len(i)).Serialize()) // first is the count
@@ -117,11 +116,6 @@ func (i *VarintList) Deserialize(raw []byte) error {
 	return i.DeserializeReader(b)
 }
 
-/*
-Decode the list of variable length integers.
-Returns: (numbers as []uint64, number of bytes they consume, error)
-https://bitmessage.org/wiki/Protocol_specification#Variable_length_list_of_integers
-*/
 func (i *VarintList) DeserializeReader(b io.Reader) error {
 	// get the length of the list
 	var length Varint

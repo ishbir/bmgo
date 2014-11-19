@@ -5,11 +5,12 @@ import (
 	"io"
 )
 
+/*
+Variable length string can be stored using a variable length integer followed by
+the string itself.
+*/
 type Varstring string
 
-/*
-Serialize a variable length string according to protocol specifications.
-*/
 func (str Varstring) Serialize() []byte {
 	var b bytes.Buffer
 	strByte := []byte(string(str))
@@ -18,9 +19,6 @@ func (str Varstring) Serialize() []byte {
 	return b.Bytes()
 }
 
-/*
-Deserialize the variable length string from a binary buffer to a string.
-*/
 func (str *Varstring) Deserialize(raw []byte) error {
 	buf := bytes.NewReader(raw)
 	return str.DeserializeReader(buf)

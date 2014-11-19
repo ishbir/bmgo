@@ -157,9 +157,6 @@ func (addr *NetworkAddress) DeserializeReader(b io.Reader) error {
 	return nil
 }
 
-/*
-Create a version message based on the input parameters.
-*/
 func (msg *VersionMessage) Serialize() []byte {
 	var b bytes.Buffer
 
@@ -175,9 +172,6 @@ func (msg *VersionMessage) Serialize() []byte {
 	return CreateMessage("version", b.Bytes())
 }
 
-/*
-Unpack a version message from the given byte data of the payload.
-*/
 func (msg *VersionMessage) Deserialize(raw []byte) error {
 	b := bytes.NewReader(raw)
 	return msg.DeserializeReader(b)
@@ -227,9 +221,6 @@ func CreateVerackMessage() []byte {
 	return CreateMessage("verack", nil)
 }
 
-/*
-Create a message containing a list of known nodes
-*/
 func (msg *AddrMessage) Serialize() []byte {
 	var b bytes.Buffer
 	b.Write(Varint(len(msg.Addresses)).Serialize()) // first item is the count
@@ -241,9 +232,6 @@ func (msg *AddrMessage) Serialize() []byte {
 	return CreateMessage("addr", b.Bytes())
 }
 
-/*
-Unpack the payload containing a list of known nodes
-*/
 func (msg *AddrMessage) Deserialize(raw []byte) error {
 	buf := bytes.NewReader(raw)
 	return msg.DeserializeReader(buf)

@@ -81,7 +81,7 @@ func (addr *NetworkAddressShort) Serialize() []byte {
 	var b bytes.Buffer
 
 	binary.Write(&b, binary.BigEndian, addr.Services)
-	binary.Write(&b, binary.BigEndian, addr.IP)
+	binary.Write(&b, binary.BigEndian, addr.IP.To16())
 	binary.Write(&b, binary.BigEndian, addr.Port)
 
 	return b.Bytes()
@@ -93,7 +93,7 @@ func (addr *NetworkAddressShort) Deserialize(raw []byte) error {
 }
 
 func (addr *NetworkAddressShort) DeserializeReader(b io.Reader) error {
-	ip := make([]byte, 16)
+	ip := make([]byte, net.IPv6len)
 
 	err := binary.Read(b, binary.BigEndian, &addr.Services)
 	if err != nil {
@@ -118,7 +118,7 @@ func (addr *NetworkAddress) Serialize() []byte {
 	binary.Write(&b, binary.BigEndian, addr.Time)
 	binary.Write(&b, binary.BigEndian, addr.Stream)
 	binary.Write(&b, binary.BigEndian, addr.Services)
-	binary.Write(&b, binary.BigEndian, addr.IP)
+	binary.Write(&b, binary.BigEndian, addr.IP.To16())
 	binary.Write(&b, binary.BigEndian, addr.Port)
 
 	return b.Bytes()
@@ -130,7 +130,7 @@ func (addr *NetworkAddress) Deserialize(raw []byte) error {
 }
 
 func (addr *NetworkAddress) DeserializeReader(b io.Reader) error {
-	ip := make([]byte, 16)
+	ip := make([]byte, net.IPv6len)
 
 	err := binary.Read(b, binary.BigEndian, &addr.Time)
 	if err != nil {
@@ -257,4 +257,66 @@ func (msg *AddrMessage) DeserializeReader(buf io.Reader) error {
 	}
 
 	return nil
+}
+
+func serializeInvVector(items []InvVector) []byte {
+	var b bytes.Buffer
+	b.Write(Varint(len(items)).Serialize()) // first item is the count
+
+	for _, item := range items { // write them all!
+		b.Write(item[:])
+	}
+	return b.Bytes()
+}
+
+func deserializeInvVector(buf io.Reader) ([]InvVector, error) {
+	var count Varint
+
+	err := count.DeserializeReader(buf)
+	if err != nil {
+		return nil, errors.New("failed to decode number of inv items: " + err.Error())
+	}
+
+	items := make([]InvVector, uint64(count)) // init output
+
+	var i uint64
+	for i = 0; i < uint64(count); i++ { // set them up
+		err = binary.Read(buf, binary.BigEndian, &items[i])
+		if err != nil {
+			return nil, DeserializeFailedError("inv item at pos " +
+				fmt.Sprint(i) + ": " + err.Error())
+		}
+	}
+
+	return items, nil
+}
+
+func (msg *InvMessage) Serialize() []byte {
+	return CreateMessage("inv", serializeInvVector(msg.Items))
+}
+
+func (msg *InvMessage) Deserialize(raw []byte) error {
+	buf := bytes.NewReader(raw)
+	return msg.DeserializeReader(buf)
+}
+
+func (msg *InvMessage) DeserializeReader(buf io.Reader) error {
+	var err error
+	msg.Items, err = deserializeInvVector(buf)
+	return err
+}
+
+func (msg *GetdataMessage) Serialize() []byte {
+	return CreateMessage("getdata", serializeInvVector(msg.Items))
+}
+
+func (msg *GetdataMessage) Deserialize(raw []byte) error {
+	buf := bytes.NewReader(raw)
+	return msg.DeserializeReader(buf)
+}
+
+func (msg *GetdataMessage) DeserializeReader(buf io.Reader) error {
+	var err error
+	msg.Items, err = deserializeInvVector(buf)
+	return err
 }

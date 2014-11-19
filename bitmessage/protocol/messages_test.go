@@ -145,5 +145,62 @@ func TestVersionMessage(t *testing.T) {
 }
 
 func TestAddrMessage(t *testing.T) {
+	aMsg := AddrMessage{
+		Addresses: []NetworkAddress{
+			NetworkAddress{
+				Time:     7417498612,
+				Stream:   16092,
+				Services: 7122444285,
+				IP:       net.ParseIP("28.53.71.21"),
+				Port:     8444,
+			},
+			NetworkAddress{
+				Time:     2178475345,
+				Stream:   11001,
+				Services: 24253795650,
+				IP:       net.ParseIP("218.214.55.2"),
+				Port:     8450,
+			},
+			NetworkAddress{
+				Time:     8636460032,
+				Stream:   17045,
+				Services: 17446225454,
+				IP:       net.ParseIP("45.56.1.58"),
+				Port:     8002,
+			},
+			NetworkAddress{
+				Time:     7330580752,
+				Stream:   26304,
+				Services: 23155342079,
+				IP:       net.ParseIP("128.26.47.8"),
+				Port:     8440,
+			},
+		},
+	}
 
+	testRes := aMsg.Serialize()
+	res := []byte{233, 190, 180, 217, 97, 100, 100, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 153, 42, 82, 100, 89, 4, 0, 0, 0, 1, 186, 30, 11, 244, 0, 0, 62, 220,
+		0, 0, 0, 1, 168, 135, 223, 253, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 28,
+		53, 71, 21, 32, 252, 0, 0, 0, 0, 129, 216, 229, 81, 0, 0, 42, 249, 0, 0, 0,
+		5, 165, 163, 141, 66, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 218, 214, 55,
+		2, 33, 2, 0, 0, 0, 2, 2, 197, 236, 0, 0, 0, 66, 149, 0, 0, 0, 4, 15, 224,
+		70, 46, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 45, 56, 1, 58, 31, 66, 0,
+		0, 0, 1, 180, 239, 201, 16, 0, 0, 102, 192, 0, 0, 0, 5, 100, 42, 122, 255,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 128, 26, 47, 8, 32, 248}
+
+	if !bytes.Equal(testRes, res) {
+		t.Error("error encoding addr message")
+	}
+
+	var aMsgTest AddrMessage
+	err := aMsgTest.Deserialize(res[MessageHeaderSize():]) // exclude the header
+	if err != nil {
+		t.Error("error decoding addr message: " + err.Error())
+	}
+
+	if !reflect.DeepEqual(aMsg, aMsgTest) {
+		t.Error("address message not equal to test")
+		fmt.Printf("%+v\n", aMsgTest)
+	}
 }

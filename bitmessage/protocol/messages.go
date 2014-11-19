@@ -93,16 +93,17 @@ func (addr *NetworkAddressShort) Deserialize(raw []byte) error {
 }
 
 func (addr *NetworkAddressShort) DeserializeReader(b io.Reader) error {
-	addr.IP = net.IP(make([]byte, 16))
+	ip := make([]byte, 16)
 
 	err := binary.Read(b, binary.BigEndian, &addr.Services)
 	if err != nil {
 		return DeserializeFailedError("services")
 	}
-	err = binary.Read(b, binary.BigEndian, &addr.IP)
+	err = binary.Read(b, binary.BigEndian, &ip)
 	if err != nil {
 		return DeserializeFailedError("IP address")
 	}
+	addr.IP = net.IP(ip)
 	err = binary.Read(b, binary.BigEndian, &addr.Port)
 	if err != nil {
 		return DeserializeFailedError("port")
@@ -129,7 +130,7 @@ func (addr *NetworkAddress) Deserialize(raw []byte) error {
 }
 
 func (addr *NetworkAddress) DeserializeReader(b io.Reader) error {
-	addr.IP = net.IP(make([]byte, 16))
+	ip := make([]byte, 16)
 
 	err := binary.Read(b, binary.BigEndian, &addr.Time)
 	if err != nil {
@@ -143,10 +144,11 @@ func (addr *NetworkAddress) DeserializeReader(b io.Reader) error {
 	if err != nil {
 		return DeserializeFailedError("services")
 	}
-	err = binary.Read(b, binary.BigEndian, &addr.IP)
+	err = binary.Read(b, binary.BigEndian, &ip)
 	if err != nil {
 		return DeserializeFailedError("IP address")
 	}
+	addr.IP = net.IP(ip)
 	err = binary.Read(b, binary.BigEndian, &addr.Port)
 	if err != nil {
 		return DeserializeFailedError("port")
@@ -259,7 +261,7 @@ func (msg *AddrMessage) DeserializeReader(buf io.Reader) error {
 
 	var i uint64
 	for i = 0; i < uint64(count); i++ { // set them up
-		err = binary.Read(buf, binary.BigEndian, &msg.Addresses[i])
+		err = msg.Addresses[i].DeserializeReader(buf)
 		if err != nil {
 			return errors.New("error decoding addr at pos " +
 				fmt.Sprint(i) + ": " + err.Error())

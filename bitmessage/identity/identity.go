@@ -1,6 +1,4 @@
-/*
-Responsible for creation and management of user identities.
-*/
+// Responsible for creation and management of user identities.
 package identity
 
 import (
@@ -10,17 +8,15 @@ import (
 	"errors"
 	"math/big"
 
-	"code.google.com/p/go.crypto/ripemd160"
+	"golang.org/x/crypto/ripemd160"
 	"github.com/conformal/btcec"
 
 	"github.com/ishbir/bitmessage-go/bitmessage/protocol"
 	"github.com/ishbir/bitmessage-go/bitmessage/protocol/base58"
 )
 
-/*
-The identity of the user, which includes public and private encryption and signing
-keys.
-*/
+// The identity of the user, which includes public and private encryption and
+// signing keys.
 type Identity struct {
 	PublicSigningKey  *btcec.PublicKey
 	PrivateSigningKey *btcec.PrivateKey
@@ -29,17 +25,15 @@ type Identity struct {
 	PrivateEncryptionKey *btcec.PrivateKey
 }
 
-/*
-Create an Identity object from the Bitmessage address and Wallet Import Format
-signing and encryption keys.
-*/
+// Create an Identity object from the Bitmessage address and Wallet Import Format
+// signing and encryption keys.
 func Import(address, signingKeyWif, encryptionKeyWif string) (*Identity, error) {
 	// (Try to) decode address
 	_, _, _, err := protocol.DecodeAddress(address)
 	if err != nil {
 		return nil, err
 	}
-	// We don't need an address version check here because DecodeAddress handles it
+	// Don't need an address version check here because DecodeAddress handles it
 
 	privSigningKey, err := wifToPrivkey(signingKeyWif)
 	if err != nil {
@@ -60,7 +54,8 @@ func Import(address, signingKeyWif, encryptionKeyWif string) (*Identity, error) 
 	}, nil
 }
 
-func (id *Identity) Export(version, stream uint64) (address, signingKeyWif, encryptionKeyWif string, err error) {
+func (id *Identity) Export(version, stream uint64) (address, signingKeyWif,
+encryptionKeyWif string, err error) {
 	address, err = protocol.EncodeAddress(version, stream, id.Hash())
 	if err != nil {
 		err = errors.New("error encoding address: " + err.Error())
@@ -82,11 +77,10 @@ func (id *Identity) Hash() []byte {
 	return ripemd.Sum(nil)     // Get the hash
 }
 
-/*
-Create an identity based on a random number generator, with the required number of
-initial zeros in front (minimum 1). Each initial zero requires exponentially more
-work. Corresponding to lines 79-99 of class_addressGenerator.py
-*/
+
+// Create an identity based on a random number generator, with the required
+// number of initial zeros in front (minimum 1). Each initial zero requires
+// exponentially more work.
 func NewRandom(initialZeros uint64) (*Identity, error) {
 	if initialZeros < 1 { // Cannot take this
 		return nil, errors.New("minimum 1 initial zero needed")
@@ -122,10 +116,7 @@ func NewRandom(initialZeros uint64) (*Identity, error) {
 	return id, nil
 }
 
-/*
-Create identities based on a deterministic passphrase. Corresponding to lines
-155-195
-*/
+// Create identities based on a deterministic passphrase.
 func NewDeterministic(passphrase string, initialZeros uint64) (*Identity, error) {
 	if initialZeros < 1 { // Cannot take this
 		return nil, errors.New("minimum 1 initial zero needed")
@@ -146,16 +137,20 @@ func NewDeterministic(passphrase string, initialZeros uint64) (*Identity, error)
 	// Go through loop to encryption keys with required num. of zeros
 	for {
 		// Create signing keys
-		temp = append([]byte(passphrase), protocol.EncodeVarint(signingKeyNonce)...)
+		temp = append([]byte(passphrase),
+			protocol.Varint(signingKeyNonce).Serialize()...)
 		sha.Reset()
 		sha.Write(temp)
-		id.PrivateSigningKey, id.PublicSigningKey = btcec.PrivKeyFromBytes(btcec.S256(), sha.Sum(nil)[:32])
+		id.PrivateSigningKey, id.PublicSigningKey =
+			btcec.PrivKeyFromBytes(btcec.S256(), sha.Sum(nil)[:32])
 
 		// Create encryption keys
-		temp = append([]byte(passphrase), protocol.EncodeVarint(encryptionKeyNonce)...)
+		temp = append([]byte(passphrase),
+			protocol.Varint(encryptionKeyNonce).Serialize()...)
 		sha.Reset()
 		sha.Write(temp)
-		id.PrivateEncryptionKey, id.PublicEncryptionKey = btcec.PrivKeyFromBytes(btcec.S256(), sha.Sum(nil)[:32])
+		id.PrivateEncryptionKey, id.PublicEncryptionKey =
+			btcec.PrivKeyFromBytes(btcec.S256(), sha.Sum(nil)[:32])
 
 		// Increment nonces
 		signingKeyNonce += 2
@@ -176,11 +171,9 @@ func (id *Identity) DecryptData(data []byte) []byte {
 
 }*/
 
-/*
-Converts the private key to wallet import format compatible key
-Code taken from:
-https://github.com/vsergeev/gimme-bitcoin-address/blob/master/gimme-bitcoin-address.go#L315
-*/
+// Converts the private key to wallet import format compatible key.
+// Code taken from:
+// https://github.com/vsergeev/gimme-bitcoin-address/blob/master/gimme-bitcoin-address.go#L315
 func privkeyToWIF(prikey *btcec.PrivateKey) (wifstr string) {
 	/* See https://en.bitcoin.it/wiki/Wallet_import_format */
 
@@ -216,9 +209,7 @@ func privkeyToWIF(prikey *btcec.PrivateKey) (wifstr string) {
 	return wifstr
 }
 
-/*
-Converts the wallet import format compatible key back to a private key
-*/
+// Converts the wallet import format compatible key back to a private key
 func wifToPrivkey(wifstr string) (prikey *btcec.PrivateKey, err error) {
 	/* See https://en.bitcoin.it/wiki/Wallet_import_format */
 

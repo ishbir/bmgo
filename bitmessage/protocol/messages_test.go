@@ -204,3 +204,15 @@ func TestAddrMessage(t *testing.T) {
 		fmt.Printf("%+v\n", aMsgTest)
 	}
 }
+
+func TestInvMessage(t *testing.T) {
+
+}
+
+func TestGetdataMessage(t *testing.T) {
+
+}
+
+func TestObjectMessage(t *testing.T) {
+
+}

@@ -15,10 +15,8 @@ func MessageHeaderSize() int {
 	return 24 // unsafe.Sizeof is not reliable, because of alignment, padding etc.
 }
 
-/*
-Create a message in the format required by the protocol specification.
-https://bitmessage.org/wiki/Protocol_specification#Message_structure
-*/
+// Create a message in the format required by the protocol specification.
+// https://bitmessage.org/wiki/Protocol_specification#Message_structure
 func CreateMessage(command string, payload []byte) []byte {
 	if len(command) > 12 {
 		panic("programming error: length of command cannot be greater than 12")
@@ -43,9 +41,7 @@ func CreateMessage(command string, payload []byte) []byte {
 	return b.Bytes()
 }
 
-/*
-Unpack the header of the received message.
-*/
+// Unpack the header of the received message.
 func UnpackMessageHeader(raw []byte) (command string, payloadLength uint32,
 	checksum [4]byte, err error) {
 	b := bytes.NewReader(raw)
@@ -68,10 +64,8 @@ func UnpackMessageHeader(raw []byte) (command string, payloadLength uint32,
 	return
 }
 
-/*
-Verify the checksum on the payload of a message to see if it has been correctly
-received.
-*/
+// Verify the checksum on the payload of a message to see if it has been
+// correctly received.
 func VerifyMessageChecksum(payload []byte, checksum [4]byte) bool {
 	t := sha512.Sum512(payload)
 	return bytes.Equal(checksum[:], t[:4]) // check for equality
@@ -214,9 +208,7 @@ func (msg *VersionMessage) DeserializeReader(b io.Reader) error {
 	return nil
 }
 
-/*
-Create a response to the version message (verack)
-*/
+// Create a response to the version message (verack)
 func CreateVerackMessage() []byte {
 	return CreateMessage("verack", nil)
 }

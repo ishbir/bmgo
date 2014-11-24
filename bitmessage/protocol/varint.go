@@ -8,19 +8,18 @@ import (
 	"io"
 )
 
-/*
-Integer can be encoded depending on the represented value to save space. Variable
-length integers always precede an array/vector of a type of data that may vary in
-length. Varints MUST use the minimum possible number of bytes to encode a value.
-For example; the value 6 can be encoded with one byte therefore a varint that uses
-three bytes to encode the value 6 is malformed and the decoding task must be aborted.
-*/
+// Integer can be encoded depending on the represented value to save space.
+// Variable length integers always precede an array/vector of a type of data
+// that may vary in length. Varints MUST use the minimum possible number of
+// bytes to encode a value.
+//
+// For example: the value 6 can be encoded with one byte therefore a varint that
+// uses three bytes to encode the value 6 is malformed and the decoding task
+// must be aborted.
 type Varint uint64
 
-/*
-n integers can be stored using n+1 variable length integers where the first var_int
-equals n.
-*/
+// n integers can be stored using n+1 variable length integers where the first
+// var_int equals n.
 type VarintList []Varint
 
 func (i Varint) Serialize() []byte {

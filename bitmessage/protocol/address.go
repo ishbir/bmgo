@@ -1,7 +1,3 @@
-/*
-Contains functions that ensure adherence to the Bitmessage v3 Protcol.
-https://bitmessage.org/wiki/Protocol_specification
-*/
 package protocol
 
 import (
@@ -13,11 +9,10 @@ import (
 	"github.com/ishbir/bmgo/bitmessage/protocol/base58"
 )
 
-/*
-Encode the address to a string that begins from BM- based on the hash.
-Based on encodeAddress in addresses.py
-Output format: [EncodeVarint(addressVersion) EncodeVarint(stream) ripe checksum]
-*/
+// Encode the address to a string that begins from BM- based on the hash.
+// Output: [Varint(addressVersion) Varint(stream) ripe checksum] where the
+// Varints are serialized. Then this byte array is base58 encoded to produce our
+// needed address.
 func EncodeAddress(version, stream uint64, ripe []byte) (string, error) {
 	if len(ripe) != 20 {
 		return "", errors.New("Length of given ripe hash was not 20")
@@ -57,20 +52,19 @@ func EncodeAddress(version, stream uint64, ripe []byte) (string, error) {
 	return "BM-" + string(base58.EncodeBig(nil, i)), nil // done
 }
 
-/*
-Decode the Bitmessage address to give the address version, stream number and data.
-The assumption is that input address is properly formatted (according to specs).
-Based on decodeAddress from addresses.py
-*/
-func DecodeAddress(address string) (version, stream uint64, ripe []byte, err error) {
-	/*if address[:3] == "BM-" { // Clients should accept addresses without BM-
-		address = address[3:]
-	}*/
-	/*
-		decodeAddress says this but then UI checks for a missingbm status from
-		decodeAddress, which doesn't exist. So I choose NOT to accept addresses without
-		the initial BM-
-	*/
+// Decode the Bitmessage address to give the address version, stream number and
+// data. The assumption is that input address is properly formatted (according
+// to specs).
+func DecodeAddress(address string) (version, stream uint64, ripe []byte,
+	err error) {
+	// if address[:3] == "BM-" { // Clients should accept addresses without BM-
+	//	address = address[3:]
+	// }
+	//
+	// decodeAddress says this but then UI checks for a missingbm status from
+	// decodeAddress, which doesn't exist. So I choose NOT to accept addresses
+	// without the initial "BM-"
+
 	i, err := base58.DecodeToBig([]byte(address[3:]))
 	if err != nil {
 		err = errors.New("input address not valid base58 string")

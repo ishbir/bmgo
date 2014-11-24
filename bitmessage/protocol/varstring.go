@@ -5,10 +5,8 @@ import (
 	"io"
 )
 
-/*
-Variable length string can be stored using a variable length integer followed by
-the string itself.
-*/
+// Variable length string can be stored using a variable length integer followed
+// by the string itself.
 type Varstring string
 
 func (str Varstring) Serialize() []byte {

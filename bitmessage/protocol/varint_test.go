@@ -142,6 +142,7 @@ func TestDeserializeVarintList(t *testing.T) {
 		t.Error("got error:", err.Error())
 	}
 	if !reflect.DeepEqual(listTest, list) {
-		t.Error(fmt.Sprintf("list items not equal, listTest: %v, list: %v", listTest, list))
+		t.Error(fmt.Sprintf("list items not equal, listTest: %v, list: %v",
+			listTest, list))
 	}
 }

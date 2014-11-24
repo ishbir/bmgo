@@ -29,10 +29,8 @@ func (e VarintMinimumSizeError) Error() string {
 	return "varint not encoded with minimum size"
 }
 
-/*
-Deserialization of an object failed. Used by Deserialize and DeserializeReader
-methods of the NetworkSerializer interface.
-*/
+// Deserialization of an object failed. Used by Deserialize and DeserializeReader
+// methods of the NetworkSerializer interface.
 type DeserializeFailedError string
 
 func (e DeserializeFailedError) Error() string {

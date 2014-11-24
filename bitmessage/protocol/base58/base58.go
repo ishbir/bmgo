@@ -4,8 +4,8 @@
 // convert integers. You can use big.Int.SetBytes to convert arbitrary
 // bytes to an integer first, and big.Int.Bytes the other way around.
 //
-// Same as https://github.com/tv42/base58 with modified alphabet for Bitmessage and
-// returning "1" for 0 as input
+// Same as https://github.com/tv42/base58 with modified alphabet for Bitmessage
+// and returning "1" for 0 as input.
 package base58
 
 import (

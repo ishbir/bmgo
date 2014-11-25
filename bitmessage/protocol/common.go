@@ -15,6 +15,28 @@ type NetworkSerializer interface {
 	DeserializeReader(io.Reader) error
 }
 
+// Version 2, 3 and 4 public keys
+type PubkeyObject interface {
+	// What version of the pubkey is it?
+	Version() int
+	// Is the pubkey encrypted?
+	IsEncrypted() bool
+}
+
+// Version 4 and 5 broadcasts
+type BroadcastObject interface {
+	// What version of the broadcast is it?
+	Version() int
+	// Is the broadcast encrypted?
+	IsEncrypted() bool
+}
+
+// Version 2 and 3 messages
+type MsgUnencryptedObject interface {
+	// What version of the msg is it?
+	Version() int
+}
+
 // Read failed because of not enough bytes.
 type NotEnoughBytesError int
 

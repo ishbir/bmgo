@@ -7,11 +7,12 @@ import (
 	"math/big"
 
 	"github.com/ishbir/bmgo/bitmessage/protocol/base58"
+	"github.com/ishbir/bmgo/bitmessage/protocol/types"
 )
 
 // Encode the address to a string that begins from BM- based on the hash.
-// Output: [Varint(addressVersion) Varint(stream) ripe checksum] where the
-// Varints are serialized. Then this byte array is base58 encoded to produce our
+// Output: [types.Varint(addressVersion) types.Varint(stream) ripe checksum] where the
+// types.Varints are serialized. Then this byte array is base58 encoded to produce our
 // needed address.
 func EncodeAddress(version, stream uint64, ripe []byte) (string, error) {
 	if len(ripe) != 20 {
@@ -35,8 +36,8 @@ func EncodeAddress(version, stream uint64, ripe []byte) (string, error) {
 	}
 
 	var binaryData bytes.Buffer
-	binaryData.Write(Varint(version).Serialize())
-	binaryData.Write(Varint(stream).Serialize())
+	binaryData.Write(types.Varint(version).Serialize())
+	binaryData.Write(types.Varint(stream).Serialize())
 	binaryData.Write(ripe)
 
 	sha := sha512.New()
@@ -88,18 +89,18 @@ func DecodeAddress(address string) (version, stream uint64, ripe []byte,
 	}
 
 	buf := bytes.NewReader(data)
-	var v, s Varint
+	var v, s types.Varint
 
 	err = v.DeserializeReader(buf) // get the version
 	if err != nil {
-		err = DeserializeFailedError("bitmessage address: " + err.Error())
+		err = types.DeserializeFailedError("bitmessage address: " + err.Error())
 		return
 	}
 	version = uint64(v)
 
 	err = s.DeserializeReader(buf) // exclude first x bytes, read next 9 bytes
 	if err != nil {
-		err = DeserializeFailedError("stream number: " + err.Error())
+		err = types.DeserializeFailedError("stream number: " + err.Error())
 		return
 	}
 	stream = uint64(s)
@@ -107,7 +108,7 @@ func DecodeAddress(address string) (version, stream uint64, ripe []byte,
 	ripe = make([]byte, buf.Len()-4) // exclude bytes already read and checksum
 	n, err := buf.Read(ripe)
 	if n != len(ripe) || err != nil {
-		err = DeserializeFailedError("ripe: " + err.Error())
+		err = types.DeserializeFailedError("ripe: " + err.Error())
 		return
 	}
 

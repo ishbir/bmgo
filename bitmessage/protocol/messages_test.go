@@ -6,6 +6,7 @@ import (
 	"net"
 	"reflect"
 	"testing"
+	"github.com/ishbir/bmgo/bitmessage/protocol/types"
 )
 
 type messageTestPair struct {
@@ -115,8 +116,8 @@ func TestVersionMessage(t *testing.T) {
 			Port:     localPort, // local port
 		},
 		Nonce:     nonce, // Random value
-		UserAgent: Varstring("/BM-Go:0.0.1/"),
-		Streams:   VarintList{1},
+		UserAgent: types.Varstring("/BM-Go:0.0.1/"),
+		Streams:   types.VarintList{1},
 	}
 
 	testRes := vMsg.Serialize()

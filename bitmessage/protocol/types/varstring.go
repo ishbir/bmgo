@@ -1,8 +1,9 @@
-package protocol
+package types
 
 import (
 	"bytes"
 	"io"
+	"errors"
 )
 
 // Variable length string can be stored using a variable length integer followed
@@ -26,7 +27,7 @@ func (str *Varstring) DeserializeReader(buf io.Reader) error {
 	var length Varint
 	err := length.DeserializeReader(buf)
 	if err != nil {
-		return DeserializeFailedError("length of varstring: " + err.Error())
+		return errors.New("length of varstring: " + err.Error())
 	}
 
 	temp := make([]byte, uint64(length))

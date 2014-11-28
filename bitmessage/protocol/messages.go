@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"net"
+	
+	"github.com/ishbir/bmgo/bitmessage/protocol/types"
 )
 
 // Return the size of the message header
@@ -91,16 +93,16 @@ func (addr *NetworkAddressShort) DeserializeReader(b io.Reader) error {
 
 	err := binary.Read(b, binary.BigEndian, &addr.Services)
 	if err != nil {
-		return DeserializeFailedError("services")
+		return types.DeserializeFailedError("services")
 	}
 	err = binary.Read(b, binary.BigEndian, &ip)
 	if err != nil {
-		return DeserializeFailedError("IP address")
+		return types.DeserializeFailedError("IP address")
 	}
 	addr.IP = net.IP(ip)
 	err = binary.Read(b, binary.BigEndian, &addr.Port)
 	if err != nil {
-		return DeserializeFailedError("port")
+		return types.DeserializeFailedError("port")
 	}
 
 	return nil
@@ -128,24 +130,24 @@ func (addr *NetworkAddress) DeserializeReader(b io.Reader) error {
 
 	err := binary.Read(b, binary.BigEndian, &addr.Time)
 	if err != nil {
-		return DeserializeFailedError("time")
+		return types.DeserializeFailedError("time")
 	}
 	err = binary.Read(b, binary.BigEndian, &addr.Stream)
 	if err != nil {
-		return DeserializeFailedError("stream")
+		return types.DeserializeFailedError("stream")
 	}
 	err = binary.Read(b, binary.BigEndian, &addr.Services)
 	if err != nil {
-		return DeserializeFailedError("services")
+		return types.DeserializeFailedError("services")
 	}
 	err = binary.Read(b, binary.BigEndian, &ip)
 	if err != nil {
-		return DeserializeFailedError("IP address")
+		return types.DeserializeFailedError("IP address")
 	}
 	addr.IP = net.IP(ip)
 	err = binary.Read(b, binary.BigEndian, &addr.Port)
 	if err != nil {
-		return DeserializeFailedError("port")
+		return types.DeserializeFailedError("port")
 	}
 
 	return nil
@@ -174,35 +176,35 @@ func (msg *VersionMessage) Deserialize(raw []byte) error {
 func (msg *VersionMessage) DeserializeReader(b io.Reader) error {
 	err := binary.Read(b, binary.BigEndian, &msg.Version)
 	if err != nil {
-		return DeserializeFailedError("version")
+		return types.DeserializeFailedError("version")
 	}
 	err = binary.Read(b, binary.BigEndian, &msg.Services)
 	if err != nil {
-		return DeserializeFailedError("services")
+		return types.DeserializeFailedError("services")
 	}
 	err = binary.Read(b, binary.BigEndian, &msg.Timestamp)
 	if err != nil {
-		return DeserializeFailedError("timestamp")
+		return types.DeserializeFailedError("timestamp")
 	}
 	err = msg.AddrRecv.DeserializeReader(b)
 	if err != nil {
-		return DeserializeFailedError("addrrecv: " + err.Error())
+		return types.DeserializeFailedError("addrrecv: " + err.Error())
 	}
 	err = msg.AddrFrom.DeserializeReader(b)
 	if err != nil {
-		return DeserializeFailedError("addrfrom: " + err.Error())
+		return types.DeserializeFailedError("addrfrom: " + err.Error())
 	}
 	err = binary.Read(b, binary.BigEndian, &msg.Nonce)
 	if err != nil {
-		return DeserializeFailedError("nonce")
+		return types.DeserializeFailedError("nonce")
 	}
 	err = msg.UserAgent.DeserializeReader(b)
 	if err != nil {
-		return DeserializeFailedError("useragent")
+		return types.DeserializeFailedError("useragent: " + err.Error())
 	}
 	err = msg.Streams.DeserializeReader(b)
 	if err != nil {
-		return DeserializeFailedError("streams")
+		return types.DeserializeFailedError("streams: " + err.Error())
 	}
 
 	return nil
@@ -215,7 +217,7 @@ func CreateVerackMessage() []byte {
 
 func (msg *AddrMessage) Serialize() []byte {
 	var b bytes.Buffer
-	b.Write(Varint(len(msg.Addresses)).Serialize()) // first item is the count
+	b.Write(types.Varint(len(msg.Addresses)).Serialize()) // first item is count
 
 	for _, addr := range msg.Addresses { // write them all!
 		b.Write(addr.Serialize())
@@ -225,14 +227,14 @@ func (msg *AddrMessage) Serialize() []byte {
 }
 
 func (msg *AddrMessage) Deserialize(raw []byte) error {
-	buf := bytes.NewReader(raw)
-	return msg.DeserializeReader(buf)
+	b := bytes.NewReader(raw)
+	return msg.DeserializeReader(b)
 }
 
-func (msg *AddrMessage) DeserializeReader(buf io.Reader) error {
-	var count Varint
+func (msg *AddrMessage) DeserializeReader(b io.Reader) error {
+	var count types.Varint
 
-	err := count.DeserializeReader(buf)
+	err := count.DeserializeReader(b)
 	if err != nil {
 		return errors.New("failed to decode number of addresses: " + err.Error())
 	}
@@ -241,7 +243,7 @@ func (msg *AddrMessage) DeserializeReader(buf io.Reader) error {
 
 	var i uint64
 	for i = 0; i < uint64(count); i++ { // set them up
-		err = msg.Addresses[i].DeserializeReader(buf)
+		err = msg.Addresses[i].DeserializeReader(b)
 		if err != nil {
 			return errors.New("error decoding addr at pos " +
 				fmt.Sprint(i) + ": " + err.Error())
@@ -253,7 +255,7 @@ func (msg *AddrMessage) DeserializeReader(buf io.Reader) error {
 
 func serializeInvVector(items []InvVector) []byte {
 	var b bytes.Buffer
-	b.Write(Varint(len(items)).Serialize()) // first item is the count
+	b.Write(types.Varint(len(items)).Serialize()) // first item is the count
 
 	for _, item := range items { // write them all!
 		b.Write(item[:])
@@ -261,10 +263,10 @@ func serializeInvVector(items []InvVector) []byte {
 	return b.Bytes()
 }
 
-func deserializeInvVector(buf io.Reader) ([]InvVector, error) {
-	var count Varint
+func deserializeInvVector(b io.Reader) ([]InvVector, error) {
+	var count types.Varint
 
-	err := count.DeserializeReader(buf)
+	err := count.DeserializeReader(b)
 	if err != nil {
 		return nil, errors.New("failed to decode number of inv items: " + err.Error())
 	}
@@ -273,9 +275,9 @@ func deserializeInvVector(buf io.Reader) ([]InvVector, error) {
 
 	var i uint64
 	for i = 0; i < uint64(count); i++ { // set them up
-		err = binary.Read(buf, binary.BigEndian, &items[i])
+		err = binary.Read(b, binary.BigEndian, &items[i])
 		if err != nil {
-			return nil, DeserializeFailedError("inv item at pos " +
+			return nil, types.DeserializeFailedError("inv item at pos " +
 				fmt.Sprint(i) + ": " + err.Error())
 		}
 	}
@@ -288,13 +290,13 @@ func (msg *InvMessage) Serialize() []byte {
 }
 
 func (msg *InvMessage) Deserialize(raw []byte) error {
-	buf := bytes.NewReader(raw)
-	return msg.DeserializeReader(buf)
+	b := bytes.NewReader(raw)
+	return msg.DeserializeReader(b)
 }
 
-func (msg *InvMessage) DeserializeReader(buf io.Reader) error {
+func (msg *InvMessage) DeserializeReader(b io.Reader) error {
 	var err error
-	msg.Items, err = deserializeInvVector(buf)
+	msg.Items, err = deserializeInvVector(b)
 	return err
 }
 
@@ -303,12 +305,62 @@ func (msg *GetdataMessage) Serialize() []byte {
 }
 
 func (msg *GetdataMessage) Deserialize(raw []byte) error {
-	buf := bytes.NewReader(raw)
-	return msg.DeserializeReader(buf)
+	b := bytes.NewReader(raw)
+	return msg.DeserializeReader(b)
 }
 
-func (msg *GetdataMessage) DeserializeReader(buf io.Reader) error {
+func (msg *GetdataMessage) DeserializeReader(b io.Reader) error {
 	var err error
-	msg.Items, err = deserializeInvVector(buf)
+	msg.Items, err = deserializeInvVector(b)
 	return err
+}
+
+func (msg *ObjectMessage) Serialize() []byte {
+	// Do pre-serialization stuff (adding signatures, doing POW, etc.)
+	msg.Payload.preserialization(msg)
+	
+	var b bytes.Buffer
+	
+	binary.Write(&b, binary.BigEndian, msg.Nonce)
+	binary.Write(&b, binary.BigEndian, msg.ExpiresTime)
+	binary.Write(&b, binary.BigEndian, msg.ObjectType)
+	b.Write(msg.Version.Serialize())
+	b.Write(msg.Stream.Serialize())
+	b.Write(msg.Payload.Serialize())
+	
+	return CreateMessage("object", b.Bytes())
+}
+
+func (msg *ObjectMessage) Deserialize(raw []byte) error {
+	b := bytes.NewReader(raw)
+	return msg.DeserializeReader(b)
+}
+
+func (msg *ObjectMessage) DeserializeReader(b io.Reader) error {
+	err := binary.Read(b, binary.BigEndian, &msg.Nonce)
+	if err != nil {
+		return types.DeserializeFailedError("nonce")
+	}
+	err = binary.Read(b, binary.BigEndian, &msg.ExpiresTime)
+	if err != nil {
+		return types.DeserializeFailedError("expiresTime")
+	}
+	err = binary.Read(b, binary.BigEndian, &msg.ObjectType)
+	if err != nil {
+		return types.DeserializeFailedError("objectType")
+	}
+	err = msg.Version.DeserializeReader(b)
+	if err != nil {
+		return types.DeserializeFailedError("version: " + err.Error())
+	}
+	err = msg.Stream.DeserializeReader(b)
+	if err != nil {
+		return types.DeserializeFailedError("stream: " + err.Error())
+	}
+	err = msg.Payload.DeserializeReader(b)
+	if err != nil {
+		return types.DeserializeFailedError("payload" + err.Error())
+	}
+
+	return nil
 }

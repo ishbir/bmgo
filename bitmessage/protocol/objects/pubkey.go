@@ -88,5 +88,5 @@ type PubkeyEncryptedV4 struct {
 
 // When decrypted, a version 4 pubkey is the same as a verion 3 pubkey.
 type PubkeyDecryptedV4 struct {
-	Pubkey PubkeyV3
+	PubkeyV3
 }

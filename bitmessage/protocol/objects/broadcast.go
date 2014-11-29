@@ -21,20 +21,20 @@ type BroadcastEncryptedV5 struct {
 // Broadcast originating from an address version <= 3.
 type BroadcastEncryptedV4 struct {
 	// Encrypted broadcast data.
-	Data EncryptedPayload
+	EncryptedPayload
 }
 
 // Broadcast version == 4 and address version == 3.
 type BroadcastUnencryptedV4AddressV3 struct {
-	Message MsgUnencryptedV3
+	MsgUnencryptedV3
 }
 
 // Broadcast version == 4 and address version == 2.
 type BroadcastUnencryptedV4AddressV2 struct {
-	Message MsgUnencryptedV2
+	MsgUnencryptedV2
 }
 
 // Broadcast version == 5 and address version == 4.
 type BroadcastUnencryptedV5 struct {
-	Message MsgUnencryptedV3
+	MsgUnencryptedV3
 }

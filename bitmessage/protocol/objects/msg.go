@@ -27,7 +27,7 @@ type EncryptedPayload struct {
 	XLength uint16
 	// X component of public key R
 	X []byte
-	// Length of X component of public key R
+	// Length of Y component of public key R
 	YLength uint16
 	// Y component of public key R
 	Y []byte

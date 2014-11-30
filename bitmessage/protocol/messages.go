@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net"
-	
+
 	"github.com/ishbir/bmgo/bitmessage/protocol/types"
 )
 
@@ -318,16 +318,16 @@ func (msg *GetdataMessage) DeserializeReader(b io.Reader) error {
 func (msg *ObjectMessage) Serialize() []byte {
 	// Do pre-serialization stuff (adding signatures, doing POW, etc.)
 	msg.Payload.preserialization(msg)
-	
+
 	var b bytes.Buffer
-	
+
 	binary.Write(&b, binary.BigEndian, msg.Nonce)
 	binary.Write(&b, binary.BigEndian, msg.ExpiresTime)
 	binary.Write(&b, binary.BigEndian, msg.ObjectType)
 	b.Write(msg.Version.Serialize())
 	b.Write(msg.Stream.Serialize())
 	b.Write(msg.Payload.Serialize())
-	
+
 	return CreateMessage("object", b.Bytes())
 }
 

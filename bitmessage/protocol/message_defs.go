@@ -1,9 +1,9 @@
 package protocol
 
 import (
-	"net"
-	"io"
 	"github.com/ishbir/bmgo/bitmessage/protocol/types"
+	"io"
+	"net"
 )
 
 // Included in every message

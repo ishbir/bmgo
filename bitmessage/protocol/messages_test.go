@@ -3,10 +3,10 @@ package protocol
 import (
 	"bytes"
 	"fmt"
+	"github.com/ishbir/bmgo/bitmessage/protocol/types"
 	"net"
 	"reflect"
 	"testing"
-	"github.com/ishbir/bmgo/bitmessage/protocol/types"
 )
 
 type messageTestPair struct {
@@ -148,28 +148,28 @@ func TestVersionMessage(t *testing.T) {
 func TestAddrMessage(t *testing.T) {
 	aMsg := AddrMessage{
 		Addresses: []NetworkAddress{
-			NetworkAddress{
+			{
 				Time:     7417498612,
 				Stream:   16092,
 				Services: 7122444285,
 				IP:       net.ParseIP("28.53.71.21"),
 				Port:     8444,
 			},
-			NetworkAddress{
+			{
 				Time:     2178475345,
 				Stream:   11001,
 				Services: 24253795650,
 				IP:       net.ParseIP("218.214.55.2"),
 				Port:     8450,
 			},
-			NetworkAddress{
+			{
 				Time:     8636460032,
 				Stream:   17045,
 				Services: 17446225454,
 				IP:       net.ParseIP("45.56.1.58"),
 				Port:     8002,
 			},
-			NetworkAddress{
+			{
 				Time:     7330580752,
 				Stream:   26304,
 				Services: 23155342079,

@@ -2,8 +2,8 @@ package types
 
 import (
 	"bytes"
-	"io"
 	"errors"
+	"io"
 )
 
 // Variable length string can be stored using a variable length integer followed

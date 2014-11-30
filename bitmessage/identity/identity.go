@@ -8,8 +8,8 @@ import (
 	"errors"
 	"math/big"
 
-	"golang.org/x/crypto/ripemd160"
 	"github.com/conformal/btcec"
+	"golang.org/x/crypto/ripemd160"
 
 	"github.com/ishbir/bitmessage-go/bitmessage/protocol"
 	"github.com/ishbir/bitmessage-go/bitmessage/protocol/base58"
@@ -55,7 +55,7 @@ func Import(address, signingKeyWif, encryptionKeyWif string) (*Identity, error) 
 }
 
 func (id *Identity) Export(version, stream uint64) (address, signingKeyWif,
-encryptionKeyWif string, err error) {
+	encryptionKeyWif string, err error) {
 	address, err = protocol.EncodeAddress(version, stream, id.Hash())
 	if err != nil {
 		err = errors.New("error encoding address: " + err.Error())
@@ -76,7 +76,6 @@ func (id *Identity) Hash() []byte {
 	ripemd.Write(sha.Sum(nil)) // take ripemd160 of required elements
 	return ripemd.Sum(nil)     // Get the hash
 }
-
 
 // Create an identity based on a random number generator, with the required
 // number of initial zeros in front (minimum 1). Each initial zero requires

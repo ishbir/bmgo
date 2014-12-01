@@ -18,11 +18,6 @@ func (str Varstring) Serialize() []byte {
 	return b.Bytes()
 }
 
-func (str *Varstring) Deserialize(raw []byte) error {
-	buf := bytes.NewReader(raw)
-	return str.DeserializeReader(buf)
-}
-
 func (str *Varstring) DeserializeReader(buf io.Reader) error {
 	var length Varint
 	err := length.DeserializeReader(buf)

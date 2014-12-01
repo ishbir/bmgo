@@ -83,11 +83,6 @@ func (addr *NetworkAddressShort) Serialize() []byte {
 	return b.Bytes()
 }
 
-func (addr *NetworkAddressShort) Deserialize(raw []byte) error {
-	b := bytes.NewReader(raw)
-	return addr.DeserializeReader(b)
-}
-
 func (addr *NetworkAddressShort) DeserializeReader(b io.Reader) error {
 	ip := make([]byte, net.IPv6len)
 
@@ -118,11 +113,6 @@ func (addr *NetworkAddress) Serialize() []byte {
 	binary.Write(&b, binary.BigEndian, addr.Port)
 
 	return b.Bytes()
-}
-
-func (addr *NetworkAddress) Deserialize(raw []byte) error {
-	b := bytes.NewReader(raw)
-	return addr.DeserializeReader(b)
 }
 
 func (addr *NetworkAddress) DeserializeReader(b io.Reader) error {
@@ -166,11 +156,6 @@ func (msg *VersionMessage) Serialize() []byte {
 	b.Write(msg.Streams.Serialize())
 
 	return CreateMessage("version", b.Bytes())
-}
-
-func (msg *VersionMessage) Deserialize(raw []byte) error {
-	b := bytes.NewReader(raw)
-	return msg.DeserializeReader(b)
 }
 
 func (msg *VersionMessage) DeserializeReader(b io.Reader) error {
@@ -224,11 +209,6 @@ func (msg *AddrMessage) Serialize() []byte {
 	}
 
 	return CreateMessage("addr", b.Bytes())
-}
-
-func (msg *AddrMessage) Deserialize(raw []byte) error {
-	b := bytes.NewReader(raw)
-	return msg.DeserializeReader(b)
 }
 
 func (msg *AddrMessage) DeserializeReader(b io.Reader) error {
@@ -289,11 +269,6 @@ func (msg *InvMessage) Serialize() []byte {
 	return CreateMessage("inv", serializeInvVector(msg.Items))
 }
 
-func (msg *InvMessage) Deserialize(raw []byte) error {
-	b := bytes.NewReader(raw)
-	return msg.DeserializeReader(b)
-}
-
 func (msg *InvMessage) DeserializeReader(b io.Reader) error {
 	var err error
 	msg.Items, err = deserializeInvVector(b)
@@ -302,11 +277,6 @@ func (msg *InvMessage) DeserializeReader(b io.Reader) error {
 
 func (msg *GetdataMessage) Serialize() []byte {
 	return CreateMessage("getdata", serializeInvVector(msg.Items))
-}
-
-func (msg *GetdataMessage) Deserialize(raw []byte) error {
-	b := bytes.NewReader(raw)
-	return msg.DeserializeReader(b)
 }
 
 func (msg *GetdataMessage) DeserializeReader(b io.Reader) error {
@@ -329,11 +299,6 @@ func (msg *ObjectMessage) Serialize() []byte {
 	b.Write(msg.Payload.Serialize())
 
 	return CreateMessage("object", b.Bytes())
-}
-
-func (msg *ObjectMessage) Deserialize(raw []byte) error {
-	b := bytes.NewReader(raw)
-	return msg.DeserializeReader(b)
 }
 
 func (msg *ObjectMessage) DeserializeReader(b io.Reader) error {

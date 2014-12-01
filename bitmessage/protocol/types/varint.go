@@ -44,11 +44,6 @@ func (i Varint) Serialize() []byte {
 	return buf.Bytes()
 }
 
-func (i *Varint) Deserialize(raw []byte) error {
-	b := bytes.NewReader(raw)
-	return i.DeserializeReader(b)
-}
-
 func (i *Varint) DeserializeReader(b io.Reader) error {
 	var first [1]byte
 	n, err := io.ReadAtLeast(b, first[:], 1)
@@ -108,11 +103,6 @@ func (i VarintList) Serialize() []byte {
 	}
 
 	return b.Bytes()
-}
-
-func (i *VarintList) Deserialize(raw []byte) error {
-	b := bytes.NewReader(raw)
-	return i.DeserializeReader(b)
 }
 
 func (i *VarintList) DeserializeReader(b io.Reader) error {

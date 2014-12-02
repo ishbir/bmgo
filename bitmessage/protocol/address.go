@@ -10,16 +10,21 @@ import (
 	"github.com/ishbir/bmgo/bitmessage/protocol/types"
 )
 
-// Encode the address to a string that begins from BM- based on the hash.
-// Output: [types.Varint(addressVersion) types.Varint(stream) ripe checksum] where the
-// types.Varints are serialized. Then this byte array is base58 encoded to produce our
-// needed address.
-func EncodeAddress(version, stream uint64, ripe []byte) (string, error) {
-	if len(ripe) != 20 {
-		return "", errors.New("Length of given ripe hash was not 20")
-	}
+// Represents a Bitmessage address
+type Address struct {
+	Version types.Varint
+	Stream  types.Varint
+	Ripe    [20]byte
+}
 
-	switch version {
+// Encode the address to a string that begins from BM- based on the hash.
+// Output: [Varint(addressVersion) Varint(stream) ripe checksum] where the
+// Varints are serialized. Then this byte array is base58 encoded to produce our
+// needed address.
+func (addr *Address) Encode() (string, error) {
+	ripe := addr.Ripe[:]
+
+	switch addr.Version {
 	case 2:
 		fallthrough
 	case 3:
@@ -36,8 +41,8 @@ func EncodeAddress(version, stream uint64, ripe []byte) (string, error) {
 	}
 
 	var binaryData bytes.Buffer
-	binaryData.Write(types.Varint(version).Serialize())
-	binaryData.Write(types.Varint(stream).Serialize())
+	binaryData.Write(addr.Version.Serialize())
+	binaryData.Write(addr.Stream.Serialize())
 	binaryData.Write(ripe)
 
 	sha := sha512.New()
@@ -53,11 +58,9 @@ func EncodeAddress(version, stream uint64, ripe []byte) (string, error) {
 	return "BM-" + string(base58.EncodeBig(nil, i)), nil // done
 }
 
-// Decode the Bitmessage address to give the address version, stream number and
-// data. The assumption is that input address is properly formatted (according
-// to specs).
-func DecodeAddress(address string) (version, stream uint64, ripe []byte,
-	err error) {
+// Decode the Bitmessage address. The assumption is that input address is
+// properly formatted (according to specs).
+func DecodeAddress(address string) (*Address, error) {
 	// if address[:3] == "BM-" { // Clients should accept addresses without BM-
 	//	address = address[3:]
 	// }
@@ -68,8 +71,7 @@ func DecodeAddress(address string) (version, stream uint64, ripe []byte,
 
 	i, err := base58.DecodeToBig([]byte(address[3:]))
 	if err != nil {
-		err = errors.New("input address not valid base58 string")
-		return
+		return nil, errors.New("input address not valid base58 string")
 	}
 	data := i.Bytes()
 
@@ -84,59 +86,53 @@ func DecodeAddress(address string) (version, stream uint64, ripe []byte,
 	sha.Write(currentHash)
 
 	if !bytes.Equal(checksum, sha.Sum(nil)[0:4]) {
-		err = errors.New("checksum failed")
-		return
+		return nil, errors.New("checksum failed")
 	}
+	// create the address
+	addr := new(Address)
 
 	buf := bytes.NewReader(data)
-	var v, s types.Varint
 
-	err = v.DeserializeReader(buf) // get the version
+	err = addr.Version.DeserializeReader(buf) // get the version
 	if err != nil {
-		err = types.DeserializeFailedError("bitmessage address: " + err.Error())
-		return
+		return nil, types.DeserializeFailedError("version: " + err.Error())
 	}
-	version = uint64(v)
 
-	err = s.DeserializeReader(buf) // exclude first x bytes, read next 9 bytes
+	err = addr.Stream.DeserializeReader(buf)
 	if err != nil {
-		err = types.DeserializeFailedError("stream number: " + err.Error())
-		return
+		return nil, types.DeserializeFailedError("stream: " + err.Error())
 	}
-	stream = uint64(s)
 
-	ripe = make([]byte, buf.Len()-4) // exclude bytes already read and checksum
+	ripe := make([]byte, buf.Len()-4) // exclude bytes already read and checksum
 	n, err := buf.Read(ripe)
 	if n != len(ripe) || err != nil {
-		err = types.DeserializeFailedError("ripe: " + err.Error())
-		return
+		return nil, types.DeserializeFailedError("ripe: " + err.Error())
 	}
 
-	switch version {
+	switch addr.Version {
 	case 2:
 		fallthrough
 	case 3:
 		if len(ripe) > 20 || len(ripe) < 18 { // improper size
-			err = errors.New("the ripe length is invalid (>18 or <4)")
-			return
+			return nil, errors.New("version 3, the ripe length is invalid")
 		}
 	case 4:
-		if ripe[0] == 0x00 { // encoded ripe data MUST have null bytes removed from front
-			err = errors.New("ripe data has null bytes in the beginning, not properly encoded")
-			return
+		// encoded ripe data MUST have null bytes removed from front
+		if ripe[0] == 0x00 {
+			return nil, errors.New("version 4, ripe data has null bytes in" +
+				" the beginning, not properly encoded")
 		}
 		if len(ripe) > 20 || len(ripe) < 4 { // improper size
-			err = errors.New("the ripe length is invalid (>20 or <4)")
-			return
+			return nil, errors.New("version 4, the ripe length is invalid")
 		}
 	default:
-		err = errors.New("unsupported address version")
-		return
+		return nil, errors.New("unsupported address version")
 	}
 
 	// prepend null bytes to make sure that the total ripe length is 20
 	numPadding := 20 - len(ripe)
 	ripe = append(make([]byte, numPadding), ripe...)
-	err = nil
-	return
+	copy(addr.Ripe[:], ripe)
+
+	return addr, nil
 }

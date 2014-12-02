@@ -15,7 +15,7 @@ type NetworkSerializer interface {
 
 // A common function for deserializing a byte array into an instance of the
 // object using the defined DeserializeReader method.
-func DeserializeBytes(to NetworkSerializer, raw []byte) error {
+func DeserializeNetworkSerializer(to NetworkSerializer, raw []byte) error {
 	b := bytes.NewReader(raw)
 	return to.DeserializeReader(b)
 }

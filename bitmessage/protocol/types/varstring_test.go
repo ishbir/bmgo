@@ -37,7 +37,7 @@ func TestDeserializeVarstring(t *testing.T) {
 	var v Varstring
 
 	for _, pair := range varstringTests {
-		err := v.Deserialize(pair.byteValue)
+		err := v.DeserializeReader(bytes.NewReader(pair.byteValue))
 		if err != nil {
 			t.Error(
 				"For", pair.byteValue,
@@ -55,7 +55,7 @@ func TestDeserializeVarstring(t *testing.T) {
 	}
 
 	// less bytes than are required
-	err := v.Deserialize([]byte{0x80, 0x65, 0x35, 0x48})
+	err := v.DeserializeReader(bytes.NewReader([]byte{0x80, 0x65, 0x35, 0x48}))
 	if err, ok := err.(NotEnoughBytesError); !ok {
 		t.Error(
 			"Expected NotEnoughBytesError, got", err.Error(),

@@ -52,7 +52,7 @@ func TestDeserializeVarint(t *testing.T) {
 	var v Varint
 
 	for _, pair := range varintTests {
-		err := v.Deserialize(pair.byteValue)
+		err := v.DeserializeReader(bytes.NewReader(pair.byteValue))
 		if err != nil {
 			t.Error(
 				"For", pair.byteValue,
@@ -71,7 +71,7 @@ func TestDeserializeVarint(t *testing.T) {
 
 	// Test for errors
 	for _, pair := range varintInvalidLengthTests {
-		err := v.Deserialize(pair.byteValue)
+		err := v.DeserializeReader(bytes.NewReader(pair.byteValue))
 		if err, ok := err.(VarintMinimumSizeError); !ok {
 			t.Error("For", pair.byteValue,
 				"expected VarintMinimumSizeError",
@@ -80,7 +80,7 @@ func TestDeserializeVarint(t *testing.T) {
 		}
 	}
 
-	err := v.Deserialize([]byte{})
+	err := v.DeserializeReader(bytes.NewReader([]byte{}))
 	if err.Error() != "error reading first byte" {
 		t.Error(
 			"For empty byte slice, expected error: error reading first byte,",
@@ -137,7 +137,7 @@ func TestDeserializeVarintList(t *testing.T) {
 	}
 
 	var list VarintList
-	err := list.Deserialize(b.Bytes())
+	err := list.DeserializeReader(bytes.NewReader(b.Bytes()))
 	if err != nil {
 		t.Error("got error:", err.Error())
 	}

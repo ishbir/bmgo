@@ -2,7 +2,7 @@ package identity
 
 import (
 	"fmt"
-	"github.com/ishbir/bitmessage-go/bitmessage/protocol"
+	"github.com/ishbir/bmgo/bitmessage/protocol"
 	"testing"
 )
 
@@ -22,29 +22,17 @@ var addressImportExportTests = []addressImportExportTest{
 		"5JYcPUZuMjzgSHmsmcsQcpzFGqM7DdEVtxwNjRZg7KfUTqmepFh"},
 }
 
-// Just checks if import was successful or not, need to improve.
-func TestImport(t *testing.T) {
+// Need to figure out a way to improve testing for this.
+func TestImportExport(t *testing.T) {
 	for _, pair := range addressImportExportTests {
-		_, err := Import(pair.address, pair.signingkey, pair.encryptionkey)
+		v, err := Import(pair.address, pair.signingkey, pair.encryptionkey)
 		if err != nil {
 			t.Error(
 				"for", pair.address,
 				"got error:", err.Error(),
 			)
 		}
-	}
-}
 
-// Need to figure out a way to improve testing for this.
-func TestExport(t *testing.T) {
-	for _, pair := range addressImportExportTests {
-		v, err := Import(pair.address, pair.signingkey, pair.encryptionkey)
-		if err != nil {
-			t.Error(
-				"for", pair.address,
-				"got import error:", err,
-			)
-		}
 		address, signingkey, encryptionkey, err := v.Export(4, 1)
 		if err != nil {
 			t.Error(
@@ -59,7 +47,7 @@ func TestExport(t *testing.T) {
 				"for", pair.address,
 				"got address:", address,
 				"signingkey:", signingkey,
-				"encrptionkey:", encryptionkey,
+				"encryptionkey:", encryptionkey,
 				"expected", pair.address, pair.signingkey, pair.encryptionkey,
 			)
 		}
@@ -115,8 +103,8 @@ func TestNewDeterministic(t *testing.T) {
 			continue
 		}
 		// Make sure to generate address of same version and stream
-		version, stream, _, _ := protocol.DecodeAddress(pair.address)
-		address, _, _, _ := id.Export(version, stream)
+		addr, _ := protocol.DecodeAddress(pair.address)
+		address, _, _, _ := id.Export(int(addr.Version), int(addr.Stream))
 		if address != pair.address {
 			t.Error(
 				"for", pair.password,

@@ -135,7 +135,7 @@ func TestVersionMessage(t *testing.T) {
 
 	var vMsgTest VersionMessage
 	// exclude the header
-	err := DeserializeNetworkSerializer(&vMsgTest, res[MessageHeaderSize():])
+	err := DeserializeTo(&vMsgTest, res[MessageHeaderSize():])
 	if err != nil {
 		t.Error("error decoding version message: " + err.Error())
 	}
@@ -197,7 +197,7 @@ func TestAddrMessage(t *testing.T) {
 
 	var aMsgTest AddrMessage
 	// exclude the header
-	err := DeserializeNetworkSerializer(&aMsgTest, res[MessageHeaderSize():])
+	err := DeserializeTo(&aMsgTest, res[MessageHeaderSize():])
 	if err != nil {
 		t.Error("error decoding addr message: " + err.Error())
 	}

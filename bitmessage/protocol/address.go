@@ -14,7 +14,7 @@ import (
 type Address struct {
 	Version types.Varint
 	Stream  types.Varint
-	Ripe    [20]byte
+	Ripe    []byte
 }
 
 // Encode the address to a string that begins from BM- based on the hash.
@@ -22,7 +22,10 @@ type Address struct {
 // Varints are serialized. Then this byte array is base58 encoded to produce our
 // needed address.
 func (addr *Address) Encode() (string, error) {
-	ripe := addr.Ripe[:]
+	if len(addr.Ripe) != 20 {
+		return "", errors.New("ripe length not 20")
+	}
+	ripe := addr.Ripe
 
 	switch addr.Version {
 	case 2:
@@ -131,8 +134,7 @@ func DecodeAddress(address string) (*Address, error) {
 
 	// prepend null bytes to make sure that the total ripe length is 20
 	numPadding := 20 - len(ripe)
-	ripe = append(make([]byte, numPadding), ripe...)
-	copy(addr.Ripe[:], ripe)
+	addr.Ripe = append(make([]byte, numPadding), ripe...)
 
 	return addr, nil
 }

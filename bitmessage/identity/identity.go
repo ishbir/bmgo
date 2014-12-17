@@ -8,28 +8,28 @@ import (
 	"errors"
 	"math/big"
 
-	"github.com/conformal/btcec"
+	"github.com/ishbir/elliptic"
 	"golang.org/x/crypto/ripemd160"
 
-	"github.com/ishbir/bitmessage-go/bitmessage/protocol"
-	"github.com/ishbir/bitmessage-go/bitmessage/protocol/base58"
+	"github.com/ishbir/bmgo/bitmessage/protocol"
+	"github.com/ishbir/bmgo/bitmessage/protocol/base58"
+	"github.com/ishbir/bmgo/bitmessage/protocol/types"
 )
+
+var curve = elliptic.Secp256k1
 
 // The identity of the user, which includes public and private encryption and
 // signing keys.
 type Identity struct {
-	PublicSigningKey  *btcec.PublicKey
-	PrivateSigningKey *btcec.PrivateKey
-
-	PublicEncryptionKey  *btcec.PublicKey
-	PrivateEncryptionKey *btcec.PrivateKey
+	SigningKey    *elliptic.PrivateKey
+	EncryptionKey *elliptic.PrivateKey
 }
 
 // Create an Identity object from the Bitmessage address and Wallet Import Format
 // signing and encryption keys.
 func Import(address, signingKeyWif, encryptionKeyWif string) (*Identity, error) {
 	// (Try to) decode address
-	_, _, _, err := protocol.DecodeAddress(address)
+	_, err := protocol.DecodeAddress(address)
 	if err != nil {
 		return nil, err
 	}
@@ -47,22 +47,26 @@ func Import(address, signingKeyWif, encryptionKeyWif string) (*Identity, error) 
 	}
 
 	return &Identity{
-		PrivateSigningKey:    privSigningKey,
-		PublicSigningKey:     privSigningKey.PubKey(),
-		PrivateEncryptionKey: privEncryptionKey,
-		PublicEncryptionKey:  privEncryptionKey.PubKey(),
+		SigningKey:    privSigningKey,
+		EncryptionKey: privEncryptionKey,
 	}, nil
 }
 
-func (id *Identity) Export(version, stream uint64) (address, signingKeyWif,
+func (id *Identity) Export(version, stream int) (address, signingKeyWif,
 	encryptionKeyWif string, err error) {
-	address, err = protocol.EncodeAddress(version, stream, id.Hash())
+	addr := &protocol.Address{
+		Version: types.Varint(version),
+		Stream:  types.Varint(stream),
+		Ripe:    id.Hash(),
+	}
+
+	address, err = addr.Encode()
 	if err != nil {
 		err = errors.New("error encoding address: " + err.Error())
 		return
 	}
-	signingKeyWif = privkeyToWIF(id.PrivateSigningKey)
-	encryptionKeyWif = privkeyToWIF(id.PrivateEncryptionKey)
+	signingKeyWif = privkeyToWIF(id.SigningKey)
+	encryptionKeyWif = privkeyToWIF(id.EncryptionKey)
 	return
 }
 
@@ -70,8 +74,8 @@ func (id *Identity) Hash() []byte {
 	sha := sha512.New()
 	ripemd := ripemd160.New()
 
-	sha.Write(id.PublicSigningKey.SerializeUncompressed())
-	sha.Write(id.PublicEncryptionKey.SerializeUncompressed())
+	sha.Write(id.SigningKey.PublicKey.SerializeUncompressed())
+	sha.Write(id.EncryptionKey.PublicKey.SerializeUncompressed())
 
 	ripemd.Write(sha.Sum(nil)) // take ripemd160 of required elements
 	return ripemd.Sum(nil)     // Get the hash
@@ -91,20 +95,19 @@ func NewRandom(initialZeros uint64) (*Identity, error) {
 	var err error
 
 	// Create signing keys
-	id.PrivateSigningKey, err = btcec.NewPrivateKey(btcec.S256())
+	id.SigningKey, err = elliptic.GeneratePrivateKey(curve)
 	if err != nil {
 		return nil, errors.New("creating private signing key failed: " + err.Error())
 	}
-	id.PublicSigningKey = id.PrivateSigningKey.PubKey()
+
 	initialZeroBytes := make([]byte, initialZeros) // used for comparison
 	// Go through loop to encryption keys with required num. of zeros
 	for {
 		// Generate encryption keys
-		id.PrivateEncryptionKey, err = btcec.NewPrivateKey(btcec.S256())
+		id.EncryptionKey, err = elliptic.GeneratePrivateKey(curve)
 		if err != nil { // Some unknown error
 			return nil, errors.New("creating private encryption key failed: " + err.Error())
 		}
-		id.PublicEncryptionKey = id.PrivateEncryptionKey.PubKey()
 
 		// We found our hash!
 		if bytes.Equal(id.Hash()[0:initialZeros], initialZeroBytes) {
@@ -126,6 +129,7 @@ func NewDeterministic(passphrase string, initialZeros uint64) (*Identity, error)
 
 	// temp variable
 	var temp []byte
+	var err error
 
 	// set the nonces
 	var signingKeyNonce, encryptionKeyNonce uint64 = 0, 1
@@ -137,19 +141,25 @@ func NewDeterministic(passphrase string, initialZeros uint64) (*Identity, error)
 	for {
 		// Create signing keys
 		temp = append([]byte(passphrase),
-			protocol.Varint(signingKeyNonce).Serialize()...)
+			types.Varint(signingKeyNonce).Serialize()...)
 		sha.Reset()
 		sha.Write(temp)
-		id.PrivateSigningKey, id.PublicSigningKey =
-			btcec.PrivKeyFromBytes(btcec.S256(), sha.Sum(nil)[:32])
+		id.SigningKey, err = elliptic.PrivateKeyFromRawBytes(curve,
+			sha.Sum(nil)[:32])
+		if err != nil {
+			return nil, errors.New("private key generation failed: " + err.Error())
+		}
 
 		// Create encryption keys
 		temp = append([]byte(passphrase),
-			protocol.Varint(encryptionKeyNonce).Serialize()...)
+			types.Varint(encryptionKeyNonce).Serialize()...)
 		sha.Reset()
 		sha.Write(temp)
-		id.PrivateEncryptionKey, id.PublicEncryptionKey =
-			btcec.PrivKeyFromBytes(btcec.S256(), sha.Sum(nil)[:32])
+		id.EncryptionKey, err = elliptic.PrivateKeyFromRawBytes(curve,
+			sha.Sum(nil)[:32])
+		if err != nil {
+			return nil, errors.New("private key generation failed: " + err.Error())
+		}
 
 		// Increment nonces
 		signingKeyNonce += 2
@@ -173,14 +183,14 @@ func (id *Identity) DecryptData(data []byte) []byte {
 // Converts the private key to wallet import format compatible key.
 // Code taken from:
 // https://github.com/vsergeev/gimme-bitcoin-address/blob/master/gimme-bitcoin-address.go#L315
-func privkeyToWIF(prikey *btcec.PrivateKey) (wifstr string) {
+func privkeyToWIF(prikey *elliptic.PrivateKey) (wifstr string) {
 	/* See https://en.bitcoin.it/wiki/Wallet_import_format */
 
 	/* Create a new SHA256 context */
 	sha256_h := sha256.New()
 
 	/* Convert the private key to a byte sequence */
-	prikey_bytes := prikey.D.Bytes()
+	prikey_bytes := prikey.Key
 
 	/* 1. Prepend 0x80 */
 	wif_bytes := append([]byte{0x80}, prikey_bytes...)
@@ -209,7 +219,7 @@ func privkeyToWIF(prikey *btcec.PrivateKey) (wifstr string) {
 }
 
 // Converts the wallet import format compatible key back to a private key
-func wifToPrivkey(wifstr string) (prikey *btcec.PrivateKey, err error) {
+func wifToPrivkey(wifstr string) (prikey *elliptic.PrivateKey, err error) {
 	/* See https://en.bitcoin.it/wiki/Wallet_import_format */
 
 	// Convert the WIF key to a byte sequence
@@ -252,7 +262,11 @@ func wifToPrivkey(wifstr string) (prikey *btcec.PrivateKey, err error) {
 	}
 
 	// All good, so create private key
-	prikey, _ = btcec.PrivKeyFromBytes(btcec.S256(), prikey_bytes)
+	prikey, err = elliptic.PrivateKeyFromRawBytes(curve, prikey_bytes)
+	if err != nil {
+		err = errors.New("creating private key from bytes failed: " + err.Error())
+		return
+	}
 
 	return prikey, nil
 }

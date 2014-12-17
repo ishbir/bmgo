@@ -83,7 +83,7 @@ type PubkeyEncryptedV4 struct {
 	// The tag, made up of bytes 32-64 of the double hash of the address data.
 	Tag [32]byte
 	// Encrypted pubkey data.
-	Data []byte
+	EncryptedData []byte
 }
 
 // When decrypted, a version 4 pubkey is the same as a verion 3 pubkey.

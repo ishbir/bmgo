@@ -15,13 +15,13 @@ type BroadcastEncryptedV5 struct {
 	// is >= 5.
 	Tag [32]byte
 	// Encrypted broadcast data.
-	Data EncryptedPayload
+	EncryptedData []byte
 }
 
 // Broadcast originating from an address version <= 3.
 type BroadcastEncryptedV4 struct {
 	// Encrypted broadcast data.
-	EncryptedPayload
+	EncryptedData []byte
 }
 
 // Broadcast version == 4 and address version == 3.

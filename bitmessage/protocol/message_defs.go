@@ -2,7 +2,6 @@ package protocol
 
 import (
 	"github.com/ishbir/bmgo/bitmessage/protocol/types"
-	"io"
 	"net"
 )
 
@@ -88,13 +87,8 @@ type ObjectMessage struct {
 // Represents the payload of an ObjectMessage. Contains the fields of different
 // objects.
 type Object interface {
+	Serializer
 	// Useful for adding signatures, calculating POW etc. before the object is
 	// serialized.
-	preserialization(*ObjectMessage)
-	// Serialize the object into bytes
-	Serialize() []byte
-	// Deserialize the object from byte array
-	Deserialize([]byte) error
-	// Deserialize the object from io.Reader
-	DeserializeReader(io.Reader) error
+	preserialize(*ObjectMessage)
 }

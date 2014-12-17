@@ -287,7 +287,7 @@ func (msg *GetdataMessage) DeserializeReader(b io.Reader) error {
 
 func (msg *ObjectMessage) Serialize() []byte {
 	// Do pre-serialization stuff (adding signatures, doing POW, etc.)
-	msg.Payload.preserialization(msg)
+	msg.Payload.preserialize(msg)
 
 	var b bytes.Buffer
 

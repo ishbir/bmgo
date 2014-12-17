@@ -1,6 +1,8 @@
 package objects
 
-import "github.com/ishbir/bmgo/bitmessage/protocol/types"
+import (
+	"github.com/ishbir/bmgo/bitmessage/protocol/types"
+)
 
 // Define how the message is to be encoded.
 type EncodingType types.Varint
@@ -17,29 +19,9 @@ const (
 	Encoding_SIMPLE
 )
 
-// Used for data that has been encrypted.
-type EncryptedPayload struct {
-	// Initialization Vector used for AES-256-CBC
-	IV [16]byte
-	// Elliptic Curve type 0x02CA (714)
-	CurveType uint16
-	// Length of X component of public key R
-	XLength uint16
-	// X component of public key R
-	X []byte
-	// Length of Y component of public key R
-	YLength uint16
-	// Y component of public key R
-	Y []byte
-	// Cipher text
-	Data []byte
-	// HMACSHA256 Message Authentication Code
-	MAC [32]byte
-}
-
 // Used for person-to-person messages.
 type MsgEncrypted struct {
-	Data EncryptedPayload
+	EncryptedData []byte
 }
 
 // Version 2 and 3 messages

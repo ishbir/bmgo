@@ -1,5 +1,14 @@
 package objects
 
+import (
+	"bytes"
+	"encoding/binary"
+	"io"
+	"io/ioutil"
+
+	"github.com/ishbir/bmgo/bitmessage/protocol/types"
+)
+
 // Version 4 and 5 broadcasts
 type Broadcast interface {
 	// What version of the broadcast is it?
@@ -18,10 +27,45 @@ type BroadcastEncryptedV5 struct {
 	EncryptedData []byte
 }
 
+func (obj *BroadcastEncryptedV5) Serialize() []byte {
+	var b bytes.Buffer
+
+	b.Write(obj.Tag[:])
+	b.Write(obj.EncryptedData[:])
+
+	return b.Bytes()
+}
+
+func (obj *BroadcastEncryptedV5) DeserializeReader(b io.Reader) error {
+	err := binary.Read(b, binary.BigEndian, obj.Tag[:])
+	if err != nil {
+		return types.DeserializeFailedError("tag")
+	}
+	obj.EncryptedData, err = ioutil.ReadAll(b)
+	if err != nil {
+		return types.DeserializeFailedError("encryptedData")
+	}
+
+	return nil
+}
+
 // Broadcast originating from an address version <= 3.
 type BroadcastEncryptedV4 struct {
 	// Encrypted broadcast data.
 	EncryptedData []byte
+}
+
+func (obj *BroadcastEncryptedV4) Serialize() []byte {
+	return obj.EncryptedData
+}
+
+func (obj *BroadcastEncryptedV4) DeserializeReader(b io.Reader) error {
+	var err error
+	obj.EncryptedData, err = ioutil.ReadAll(b)
+	if err != nil {
+		return types.DeserializeFailedError("encryptedData")
+	}
+	return nil
 }
 
 // Broadcast version == 4 and address version == 3.

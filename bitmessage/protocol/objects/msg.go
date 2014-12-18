@@ -1,6 +1,9 @@
 package objects
 
 import (
+	"io"
+	"io/ioutil"
+
 	"github.com/ishbir/bmgo/bitmessage/protocol/types"
 )
 
@@ -22,6 +25,19 @@ const (
 // Used for person-to-person messages.
 type MsgEncrypted struct {
 	EncryptedData []byte
+}
+
+func (obj *MsgEncrypted) Serialize() []byte {
+	return obj.EncryptedData
+}
+
+func (obj *MsgEncrypted) DeserializeReader(b io.Reader) error {
+	var err error
+	obj.EncryptedData, err = ioutil.ReadAll(b)
+	if err != nil {
+		return types.DeserializeFailedError("encryptedData")
+	}
+	return nil
 }
 
 // Version 2 and 3 messages
@@ -67,17 +83,20 @@ type MsgUnencryptedV3 struct {
 	// Message Encoding type
 	Encoding EncodingType
 	// Message Length
-	MessageLength types.Varint
+	// MessageLength types.Varint
+
 	// The message
 	Message []byte
 	// Length of the acknowledgement data
-	AckLength types.Varint
+	// AckLength types.Varint
+
 	// The acknowledgement data to be transmitted. This takes the form of a
 	// Bitmessage protocol message, like another msg message. The POW therein
 	// must already be completed.
 	AckData []byte
 	// Length of the signature
-	SigLength types.Varint
+	// SigLength types.Varint
+
 	// The ECDSA signature which covers everything from the msg_version to the
 	// ack_data.
 	Signature []byte
@@ -105,17 +124,20 @@ type MsgUnencryptedV2 struct {
 	// Message Encoding type
 	Encoding EncodingType
 	// Message Length
-	MessageLength types.Varint
+	// MessageLength types.Varint
+
 	// The message
 	Message []byte
 	// Length of the acknowledgement data
-	AckLength types.Varint
+	// AckLength types.Varint
+
 	// The acknowledgement data to be transmitted. This takes the form of a
 	// Bitmessage protocol message, like another msg message. The POW therein
 	// must already be completed.
 	AckData []byte
 	// Length of the signature
-	SigLength types.Varint
+	// SigLength types.Varint
+
 	// The ECDSA signature which covers everything from the msg_version to the
 	// ack_data.
 	Signature []byte

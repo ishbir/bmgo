@@ -1,6 +1,13 @@
 package objects
 
-import "github.com/ishbir/bmgo/bitmessage/protocol/types"
+import (
+	"bytes"
+	"encoding/binary"
+	"io"
+	"io/ioutil"
+
+	"github.com/ishbir/bmgo/bitmessage/protocol/types"
+)
 
 // When a node has the hash of a public key (from a version <= 3 address) but
 // not the public key itself, it must send out a request for the public key.
@@ -10,12 +17,38 @@ type GetpubkeyV3 struct {
 	Ripe [20]byte
 }
 
+func (obj *GetpubkeyV3) Serialize() []byte {
+	return obj.Ripe[:]
+}
+
+func (obj *GetpubkeyV3) DeserializeReader(b io.Reader) error {
+	temp, err := ioutil.ReadAll(b)
+	if err != nil || len(temp) != 20 {
+		return types.DeserializeFailedError("ripe")
+	}
+	copy(obj.Ripe[:], temp)
+	return nil
+}
+
 // When a node has the hash of a public key (from a version >= 4 address) but
 // not the public key itself, it must send out a request for the public key.
 type GetpubkeyV4 struct {
 	// The tag derived from the address version, stream number, and ripe. This
 	// field is only included when the address version is >= 4.
 	Tag [32]byte
+}
+
+func (obj *GetpubkeyV4) Serialize() []byte {
+	return obj.Tag[:]
+}
+
+func (obj *GetpubkeyV4) DeserializeReader(b io.Reader) error {
+	temp, err := ioutil.ReadAll(b)
+	if err != nil || len(temp) != 32 {
+		return types.DeserializeFailedError("tag")
+	}
+	copy(obj.Tag[:], temp)
+	return nil
 }
 
 // Version 2, 3 and 4 public keys
@@ -38,6 +71,33 @@ type PubkeyV2 struct {
 	// The ECC public key used for encryption (uncompressed format; normally
 	// prepended with \x04 )
 	PubEncryptionKey [64]byte
+}
+
+func (obj *PubkeyV2) Serialize() []byte {
+	var b bytes.Buffer
+
+	binary.Write(&b, binary.BigEndian, obj.Behaviour)
+	b.Write(obj.PubSigningKey[:])
+	b.Write(obj.PubEncryptionKey[:])
+
+	return b.Bytes()
+}
+
+func (obj *PubkeyV2) DeserializeReader(b io.Reader) error {
+	err := binary.Read(b, binary.BigEndian, &obj.Behaviour)
+	if err != nil {
+		return types.DeserializeFailedError("behaviour")
+	}
+	err = binary.Read(b, binary.BigEndian, obj.PubSigningKey[:])
+	if err != nil {
+		return types.DeserializeFailedError("pubSigningKey")
+	}
+	err = binary.Read(b, binary.BigEndian, obj.PubEncryptionKey[:])
+	if err != nil {
+		return types.DeserializeFailedError("pubEncryptionKey")
+	}
+
+	return nil
 }
 
 // A version 3 pubkey
@@ -66,11 +126,61 @@ type PubkeyV3 struct {
 	// 1000.
 	ExtraBytes types.Varint
 	// Length of the signature
-	SigLength types.Varint
+	// SigLength types.Varint
+
 	// The ECDSA signature which, as of protocol v3, covers the object header
 	// starting with the time, appended with the data described in this table
 	// down to the extra_bytes.
 	Signature []byte
+}
+
+func (obj *PubkeyV3) Serialize() []byte {
+	var b bytes.Buffer
+
+	binary.Write(&b, binary.BigEndian, obj.Behaviour)
+	b.Write(obj.PubSigningKey[:])
+	b.Write(obj.PubEncryptionKey[:])
+	b.Write(obj.NonceTrialsPerByte.Serialize())
+	b.Write(obj.ExtraBytes.Serialize())
+	b.Write(types.Varint(len(obj.Signature)).Serialize())
+	b.Write(obj.Signature)
+
+	return b.Bytes()
+}
+
+func (obj *PubkeyV3) DeserializeReader(b io.Reader) error {
+	err := binary.Read(b, binary.BigEndian, &obj.Behaviour)
+	if err != nil {
+		return types.DeserializeFailedError("behaviour")
+	}
+	err = binary.Read(b, binary.BigEndian, obj.PubSigningKey[:])
+	if err != nil {
+		return types.DeserializeFailedError("pubSigningKey")
+	}
+	err = binary.Read(b, binary.BigEndian, obj.PubEncryptionKey[:])
+	if err != nil {
+		return types.DeserializeFailedError("pubEncryptionKey")
+	}
+	err = obj.NonceTrialsPerByte.DeserializeReader(b)
+	if err != nil {
+		return types.DeserializeFailedError("nonceTrialsPerByte: " + err.Error())
+	}
+	err = obj.ExtraBytes.DeserializeReader(b)
+	if err != nil {
+		return types.DeserializeFailedError("extraBytes: " + err.Error())
+	}
+	var sigLength types.Varint
+	err = sigLength.DeserializeReader(b)
+	if err != nil {
+		return types.DeserializeFailedError("sigLength: " + err.Error())
+	}
+	obj.Signature = make([]byte, int(sigLength))
+	err = binary.Read(b, binary.BigEndian, obj.Signature)
+	if err != nil {
+		return types.DeserializeFailedError("signature")
+	}
+
+	return nil
 }
 
 // When version 4 pubkeys are created, most of the data in the pubkey is
@@ -84,6 +194,28 @@ type PubkeyEncryptedV4 struct {
 	Tag [32]byte
 	// Encrypted pubkey data.
 	EncryptedData []byte
+}
+
+func (obj *PubkeyEncryptedV4) Serialize() []byte {
+	var b bytes.Buffer
+
+	b.Write(obj.Tag[:])
+	b.Write(obj.EncryptedData)
+
+	return b.Bytes()
+}
+
+func (obj *PubkeyEncryptedV4) DeserializeReader(b io.Reader) error {
+	err := binary.Read(b, binary.BigEndian, obj.Tag[:])
+	if err != nil {
+		return types.DeserializeFailedError("tag")
+	}
+	err = binary.Read(b, binary.BigEndian, obj.EncryptedData)
+	if err != nil {
+		return types.DeserializeFailedError("encryptedData")
+	}
+
+	return nil
 }
 
 // When decrypted, a version 4 pubkey is the same as a verion 3 pubkey.

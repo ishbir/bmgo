@@ -9,6 +9,7 @@ import (
 	"io"
 	"net"
 
+	"github.com/ishbir/bmgo/bitmessage/protocol/objects"
 	"github.com/ishbir/bmgo/bitmessage/protocol/types"
 )
 
@@ -90,7 +91,7 @@ func (addr *NetworkAddressShort) DeserializeReader(b io.Reader) error {
 	if err != nil {
 		return types.DeserializeFailedError("services")
 	}
-	err = binary.Read(b, binary.BigEndian, &ip)
+	err = binary.Read(b, binary.BigEndian, ip)
 	if err != nil {
 		return types.DeserializeFailedError("IP address")
 	}
@@ -130,7 +131,7 @@ func (addr *NetworkAddress) DeserializeReader(b io.Reader) error {
 	if err != nil {
 		return types.DeserializeFailedError("services")
 	}
-	err = binary.Read(b, binary.BigEndian, &ip)
+	err = binary.Read(b, binary.BigEndian, ip)
 	if err != nil {
 		return types.DeserializeFailedError("IP address")
 	}
@@ -287,7 +288,7 @@ func (msg *GetdataMessage) DeserializeReader(b io.Reader) error {
 
 func (msg *ObjectMessage) Serialize() []byte {
 	// Do pre-serialization stuff (adding signatures, doing POW, etc.)
-	msg.Payload.preserialize(msg)
+	msg.preserialize()
 
 	var b bytes.Buffer
 
@@ -322,10 +323,67 @@ func (msg *ObjectMessage) DeserializeReader(b io.Reader) error {
 	if err != nil {
 		return types.DeserializeFailedError("stream: " + err.Error())
 	}
+	msg.setPayloadType() // set the Payload field
 	err = msg.Payload.DeserializeReader(b)
 	if err != nil {
 		return types.DeserializeFailedError("payload" + err.Error())
 	}
 
 	return nil
+}
+
+func (msg *ObjectMessage) preserialize() {
+
+}
+
+// setPayloadType sets the Payload field of the ObjectMessage struct according
+// to the value of Version and ObjectType.
+func (msg *ObjectMessage) setPayloadType() {
+	// default value
+	msg.Payload = &objects.Unrecognized{}
+	// used when the msg version is unknown
+	corrupt := &objects.Corrupt{}
+
+	switch msg.ObjectType {
+	case 0: // getpubkey object
+		switch msg.Version {
+		case 2:
+			fallthrough
+		case 3:
+			msg.Payload = &objects.GetpubkeyV3{}
+		case 4:
+			msg.Payload = &objects.GetpubkeyV4{}
+		default:
+			msg.Payload = corrupt
+		}
+
+	case 1: // pubkey object
+		switch msg.Version {
+		case 2:
+			msg.Payload = &objects.PubkeyV2{}
+		case 3:
+			msg.Payload = &objects.PubkeyV3{}
+		case 4:
+			msg.Payload = &objects.PubkeyEncryptedV4{}
+		default:
+			msg.Payload = corrupt
+		}
+
+	case 2: // msg object
+		if int(msg.Version) == 1 { // this has been fixed at 1
+			msg.Payload = &objects.MsgEncrypted{}
+		} else {
+			msg.Payload = corrupt
+		}
+
+	case 3: // broadcast object
+		switch msg.Version {
+		case 4:
+			msg.Payload = &objects.BroadcastEncryptedV4{}
+		case 5:
+			msg.Payload = &objects.BroadcastEncryptedV5{}
+		default:
+			msg.Payload = corrupt
+		}
+	}
 }

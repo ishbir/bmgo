@@ -81,7 +81,7 @@ type ObjectMessage struct {
 	ObjectType  uint32
 	Version     types.Varint
 	Stream      types.Varint
-	Payload     Object
+	Payload     Serializer
 }
 
 // Represents the payload of an ObjectMessage. Contains the fields of different

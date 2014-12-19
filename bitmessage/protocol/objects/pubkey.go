@@ -100,6 +100,11 @@ func (obj *PubkeyV2) DeserializeReader(b io.Reader) error {
 	return nil
 }
 
+func (obj *PubkeyV2) SetSigningAndEncryptionKeys(sk, ek []byte) {
+	copy(obj.PubSigningKey[:], sk)
+	copy(obj.PubEncryptionKey[:], ek)
+}
+
 // A version 3 pubkey
 type PubkeyV3 struct {
 	// A bitfield of optional behaviors and features that can be expected from
@@ -134,7 +139,7 @@ type PubkeyV3 struct {
 	Signature []byte
 }
 
-func (obj *PubkeyV3) Serialize() []byte {
+func (obj *PubkeyV3) SignatureSerialize() []byte {
 	var b bytes.Buffer
 
 	binary.Write(&b, binary.BigEndian, obj.Behaviour)
@@ -142,6 +147,14 @@ func (obj *PubkeyV3) Serialize() []byte {
 	b.Write(obj.PubEncryptionKey[:])
 	b.Write(obj.NonceTrialsPerByte.Serialize())
 	b.Write(obj.ExtraBytes.Serialize())
+
+	return b.Bytes()
+}
+
+func (obj *PubkeyV3) Serialize() []byte {
+	var b bytes.Buffer
+
+	b.Write(obj.SignatureSerialize())
 	b.Write(types.Varint(len(obj.Signature)).Serialize())
 	b.Write(obj.Signature)
 
@@ -181,6 +194,15 @@ func (obj *PubkeyV3) DeserializeReader(b io.Reader) error {
 	}
 
 	return nil
+}
+
+func (obj *PubkeyV3) SetSignature(sig []byte) {
+	obj.Signature = sig
+}
+
+func (obj *PubkeyV3) SetSigningAndEncryptionKeys(sk, ek []byte) {
+	copy(obj.PubSigningKey[:], sk)
+	copy(obj.PubEncryptionKey[:], ek)
 }
 
 // When version 4 pubkeys are created, most of the data in the pubkey is

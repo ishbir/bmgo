@@ -9,6 +9,7 @@ import (
 	"io"
 	"net"
 
+	"github.com/ishbir/bmgo/bitmessage/identity"
 	"github.com/ishbir/bmgo/bitmessage/protocol/objects"
 	"github.com/ishbir/bmgo/bitmessage/protocol/types"
 )
@@ -286,17 +287,22 @@ func (msg *GetdataMessage) DeserializeReader(b io.Reader) error {
 	return err
 }
 
-func (msg *ObjectMessage) Serialize() []byte {
-	// Do pre-serialization stuff (adding signatures, doing POW, etc.)
-	msg.preserialize()
+// HeaderSerialize is responsible for serializing the object message header
+// (excluding the nonce) for use in signing of the payload.
+func (msg *ObjectMessage) HeaderSerialize() []byte {
+	var b bytes.Buffer
+	binary.Write(&b, binary.BigEndian, msg.ExpiresTime)
+	binary.Write(&b, binary.BigEndian, uint32(msg.ObjectType))
+	b.Write(msg.Version.Serialize())
+	b.Write(msg.Stream.Serialize())
+	return b.Bytes()
+}
 
+func (msg *ObjectMessage) Serialize() []byte {
 	var b bytes.Buffer
 
 	binary.Write(&b, binary.BigEndian, msg.Nonce)
-	binary.Write(&b, binary.BigEndian, msg.ExpiresTime)
-	binary.Write(&b, binary.BigEndian, msg.ObjectType)
-	b.Write(msg.Version.Serialize())
-	b.Write(msg.Stream.Serialize())
+	b.Write(msg.HeaderSerialize())
 	b.Write(msg.Payload.Serialize())
 
 	return CreateMessage("object", b.Bytes())
@@ -311,10 +317,12 @@ func (msg *ObjectMessage) DeserializeReader(b io.Reader) error {
 	if err != nil {
 		return types.DeserializeFailedError("expiresTime")
 	}
-	err = binary.Read(b, binary.BigEndian, &msg.ObjectType)
+	var objType uint32
+	err = binary.Read(b, binary.BigEndian, &objType)
 	if err != nil {
 		return types.DeserializeFailedError("objectType")
 	}
+	msg.ObjectType = ObjectType(objType)
 	err = msg.Version.DeserializeReader(b)
 	if err != nil {
 		return types.DeserializeFailedError("version: " + err.Error())
@@ -332,8 +340,28 @@ func (msg *ObjectMessage) DeserializeReader(b io.Reader) error {
 	return nil
 }
 
-func (msg *ObjectMessage) preserialize() {
-
+// ApplyIdentity is responsible for embedding the public signing and encryption
+// keys, signing the unencrypted message and then finally encrypting the message.
+func (msg *ObjectMessage) ApplyIdentity(id *identity.Identity) error {
+	signer, ok := msg.Payload.(SignablePayload)
+	if ok {
+		var b bytes.Buffer
+		b.Write(msg.HeaderSerialize())
+		b.Write(signer.SignatureSerialize())
+		signature, err := id.SigningKey.Sign(b.Bytes())
+		if err != nil {
+			errors.New("signing failed: " + err.Error())
+		}
+		signer.SetSignature(signature)
+	}
+	keysetter, ok := msg.Payload.(PublicKeysAddable)
+	if ok {
+		keysetter.SetSigningAndEncryptionKeys(
+			id.SigningKey.SerializeUncompressed()[1:], // exclude 0x04
+			id.EncryptionKey.SerializeUncompressed()[1:],
+		)
+	}
+	return nil
 }
 
 // setPayloadType sets the Payload field of the ObjectMessage struct according
@@ -345,7 +373,7 @@ func (msg *ObjectMessage) setPayloadType() {
 	corrupt := &objects.Corrupt{}
 
 	switch msg.ObjectType {
-	case 0: // getpubkey object
+	case GetpubkeyObject:
 		switch msg.Version {
 		case 2:
 			fallthrough
@@ -357,7 +385,7 @@ func (msg *ObjectMessage) setPayloadType() {
 			msg.Payload = corrupt
 		}
 
-	case 1: // pubkey object
+	case PubkeyObject: // pubkey object
 		switch msg.Version {
 		case 2:
 			msg.Payload = &objects.PubkeyV2{}
@@ -369,14 +397,14 @@ func (msg *ObjectMessage) setPayloadType() {
 			msg.Payload = corrupt
 		}
 
-	case 2: // msg object
+	case MsgObject: // msg object
 		if int(msg.Version) == 1 { // this has been fixed at 1
 			msg.Payload = &objects.MsgEncrypted{}
 		} else {
 			msg.Payload = corrupt
 		}
 
-	case 3: // broadcast object
+	case BroadcastObject: // broadcast object
 		switch msg.Version {
 		case 4:
 			msg.Payload = &objects.BroadcastEncryptedV4{}

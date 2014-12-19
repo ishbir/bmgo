@@ -71,6 +71,16 @@ type GetdataMessage struct {
 	Items []InvVector
 }
 
+// Define how the message is to be encoded.
+type ObjectType uint32
+
+const (
+	GetpubkeyObject = ObjectType(iota)
+	PubkeyObject
+	MsgObject
+	BroadcastObject
+)
+
 // An object is a message which is shared throughout a stream. It is the only
 // message which propagates; all others are only between two nodes. Objects have
 // a type, like 'msg', or 'broadcast'. To be a valid object, the Proof Of Work
@@ -78,17 +88,26 @@ type GetdataMessage struct {
 type ObjectMessage struct {
 	Nonce       uint64
 	ExpiresTime uint64
-	ObjectType  uint32
+	ObjectType  ObjectType
 	Version     types.Varint
 	Stream      types.Varint
 	Payload     Serializer
 }
 
-// Represents the payload of an ObjectMessage. Contains the fields of different
-// objects.
-type Object interface {
+// SignablePayload represents payload which can have a signature added to it.
+type SignablePayload interface {
 	Serializer
-	// Useful for adding signatures, calculating POW etc. before the object is
-	// serialized.
-	preserialize(*ObjectMessage)
+	// SignatureSerialize gets the part of the payload that has to be appended
+	// to object message header for signing.
+	SignatureSerialize() []byte
+	// SetSignature sets the value of the Signature field of the payload.
+	SetSignature([]byte)
+}
+
+// PublicKeysAddable represents payload that requires addition of signing
+// and encryption public keys to it.
+type PublicKeysAddable interface {
+	// SetSigningAndEncryptionKeys sets the PubSigningKey and PubEncryptionKey
+	// fields of the payload
+	SetSigningAndEncryptionKeys([]byte, []byte)
 }

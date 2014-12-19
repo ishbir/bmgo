@@ -9,6 +9,8 @@ import (
 	"io"
 	"net"
 
+	"github.com/ishbir/elliptic"
+
 	"github.com/ishbir/bmgo/bitmessage/identity"
 	"github.com/ishbir/bmgo/bitmessage/protocol/objects"
 	"github.com/ishbir/bmgo/bitmessage/protocol/types"
@@ -298,6 +300,12 @@ func (msg *ObjectMessage) HeaderSerialize() []byte {
 	return b.Bytes()
 }
 
+// For objects payloads that have the requisite features, the order of calling
+// various helper functions is:
+// 1. ApplyIdentity
+// 2. Encrypt
+// 3. DoPOW
+// 4. Serialize
 func (msg *ObjectMessage) Serialize() []byte {
 	var b bytes.Buffer
 
@@ -341,8 +349,8 @@ func (msg *ObjectMessage) DeserializeReader(b io.Reader) error {
 }
 
 // ApplyIdentity is responsible for embedding the public signing and encryption
-// keys, signing the unencrypted message and then finally encrypting the message.
-func (msg *ObjectMessage) ApplyIdentity(id *identity.Identity) error {
+// keys, signing the unencrypted message and encrypting the pubkey.
+func (msg *ObjectMessage) ApplyIdentity(id *identity.Own) error {
 	signer, ok := msg.Payload.(SignablePayload)
 	if ok {
 		var b bytes.Buffer
@@ -354,6 +362,7 @@ func (msg *ObjectMessage) ApplyIdentity(id *identity.Identity) error {
 		}
 		signer.SetSignature(signature)
 	}
+
 	keysetter, ok := msg.Payload.(PublicKeysAddable)
 	if ok {
 		keysetter.SetSigningAndEncryptionKeys(
@@ -361,7 +370,53 @@ func (msg *ObjectMessage) ApplyIdentity(id *identity.Identity) error {
 			id.EncryptionKey.SerializeUncompressed()[1:],
 		)
 	}
+
+	pubkey, ok := msg.Payload.(*objects.PubkeyUnencryptedV4)
+	if ok {
+		hash := id.Address.CalcDoubleHash()
+		privKey, err := elliptic.PrivateKeyFromRawBytes(elliptic.Secp256k1,
+			hash[:32])
+		if err != nil {
+			return errors.New("failed to create private key from address: " +
+				err.Error())
+		}
+		randomKey, err := elliptic.GeneratePrivateKey(elliptic.Secp256k1)
+		if err != nil {
+			return errors.New("failed to create random private key: " +
+				err.Error())
+		}
+		randomKey.Encrypt(&privKey.PublicKey, pubkey.Serialize())
+	}
 	return nil
+}
+
+// Encrypt peforms all encryption operations necessary on the payload, changing
+// it from its unencrypted to encrypted form, ready to be sent out and for POW
+// to be performed on.
+func (msg *ObjectMessage) Encrypt(target *identity.Foreign) error {
+	/*switch payload := msg.Payload.(type) {
+	case *objects.MsgUnencryptedV2, *objects.MsgUnencryptedV3:
+	case *objects.BroadcastUnencryptedV4AddressV2,
+		*objects.BroadcastUnencryptedV4AddressV3:
+	case *objects.BroadcastUnencryptedV5:
+	default:
+		panic("payload not encryptable")
+	}*/
+	return nil
+}
+
+// encryptPayload encrypts the payload using the public encryption key of the
+// specified identity and returns it as a byte slice.
+func (msg *ObjectMessage) encryptPayload(target *identity.Foreign) ([]byte, error) {
+	key, err := elliptic.GeneratePrivateKey(elliptic.Secp256k1)
+	if err != nil {
+		return nil, errors.New("failed to generate private key: " + err.Error())
+	}
+	encData, err := key.Encrypt(target.EncryptionKey, msg.Payload.Serialize())
+	if err != nil {
+		return nil, errors.New("failed to encrypt: " + err.Error())
+	}
+	return encData, nil
 }
 
 // setPayloadType sets the Payload field of the ObjectMessage struct according
@@ -385,7 +440,7 @@ func (msg *ObjectMessage) setPayloadType() {
 			msg.Payload = corrupt
 		}
 
-	case PubkeyObject: // pubkey object
+	case PubkeyObject:
 		switch msg.Version {
 		case 2:
 			msg.Payload = &objects.PubkeyV2{}
@@ -397,14 +452,14 @@ func (msg *ObjectMessage) setPayloadType() {
 			msg.Payload = corrupt
 		}
 
-	case MsgObject: // msg object
+	case MsgObject:
 		if int(msg.Version) == 1 { // this has been fixed at 1
 			msg.Payload = &objects.MsgEncrypted{}
 		} else {
 			msg.Payload = corrupt
 		}
 
-	case BroadcastObject: // broadcast object
+	case BroadcastObject:
 		switch msg.Version {
 		case 4:
 			msg.Payload = &objects.BroadcastEncryptedV4{}

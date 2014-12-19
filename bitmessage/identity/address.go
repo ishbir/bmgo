@@ -14,7 +14,7 @@ import (
 type Address struct {
 	Version types.Varint
 	Stream  types.Varint
-	Ripe    []byte
+	Ripe    [20]byte
 }
 
 // Encode the address to a string that begins from BM- based on the hash.
@@ -22,10 +22,7 @@ type Address struct {
 // Varints are serialized. Then this byte array is base58 encoded to produce our
 // needed address.
 func (addr *Address) Encode() (string, error) {
-	if len(addr.Ripe) != 20 {
-		return "", errors.New("ripe length not 20")
-	}
-	ripe := addr.Ripe
+	ripe := addr.Ripe[:]
 
 	switch addr.Version {
 	case 2:
@@ -134,7 +131,25 @@ func DecodeAddress(address string) (*Address, error) {
 
 	// prepend null bytes to make sure that the total ripe length is 20
 	numPadding := 20 - len(ripe)
-	addr.Ripe = append(make([]byte, numPadding), ripe...)
+	ripe = append(make([]byte, numPadding), ripe...)
+	copy(addr.Ripe[:], ripe)
 
 	return addr, nil
+}
+
+// CalcDoubleHash calculates the double sha512 sum of the address, the first
+// half of which is used as private encryption key for the public key object
+// and the second half is used as a tag.
+func (addr *Address) CalcDoubleHash() []byte {
+	var b bytes.Buffer
+	b.Write(addr.Version.Serialize())
+	b.Write(addr.Stream.Serialize())
+	b.Write(addr.Ripe[:])
+
+	sha := sha512.New()
+	sha.Write(b.Bytes())
+	temp := sha.Sum(nil)
+	sha.Reset()
+	sha.Write(temp)
+	return sha.Sum(nil)
 }

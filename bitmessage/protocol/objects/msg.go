@@ -42,12 +42,6 @@ func (obj *MsgEncrypted) DeserializeReader(b io.Reader) error {
 	return nil
 }
 
-// Version 2 and 3 messages
-type MsgUnencrypted interface {
-	// What is the address version of the sender?
-	Version() int
-}
-
 // Used for person-to-person messages when the sender's address version <= 2.
 type MsgUnencryptedV2 struct {
 	// Sender's address version number. This is needed in order to calculate the

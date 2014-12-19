@@ -2,7 +2,6 @@ package identity
 
 import (
 	"fmt"
-	"github.com/ishbir/bmgo/bitmessage/protocol"
 	"testing"
 )
 
@@ -105,7 +104,7 @@ func TestNewDeterministic(t *testing.T) {
 			continue
 		}
 		// Make sure to generate address of same version and stream
-		addr, _ := protocol.DecodeAddress(pair.address)
+		addr, _ := DecodeAddress(pair.address)
 		id.Address.Version = addr.Version
 		id.Address.Stream = addr.Stream
 		address, _, _, _ := id.Export()

@@ -1,4 +1,4 @@
-package protocol
+package identity
 
 import (
 	"bytes"
@@ -6,7 +6,7 @@ import (
 	"errors"
 	"math/big"
 
-	"github.com/ishbir/bmgo/bitmessage/protocol/base58"
+	"github.com/ishbir/base58"
 	"github.com/ishbir/bmgo/bitmessage/protocol/types"
 )
 

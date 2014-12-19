@@ -8,28 +8,29 @@ import (
 	"errors"
 	"math/big"
 
+	"github.com/ishbir/base58"
 	"github.com/ishbir/elliptic"
 	"golang.org/x/crypto/ripemd160"
 
-	"github.com/ishbir/bmgo/bitmessage/protocol"
-	"github.com/ishbir/bmgo/bitmessage/protocol/base58"
 	"github.com/ishbir/bmgo/bitmessage/protocol/types"
 )
 
 var curve = elliptic.Secp256k1
 
-// The identity of the user, which includes public and private encryption and
-// signing keys.
+// Identity contains the identity of the user, which includes public and private
+// encryption and signing keys, as well as the address that contains information
+// about stream number and address version.
 type Identity struct {
 	SigningKey    *elliptic.PrivateKey
 	EncryptionKey *elliptic.PrivateKey
+	Address
 }
 
-// Create an Identity object from the Bitmessage address and Wallet Import Format
-// signing and encryption keys.
+// Import creates an Identity object from the Bitmessage address and Wallet
+// Import Format (WIF) signing and encryption keys.
 func Import(address, signingKeyWif, encryptionKeyWif string) (*Identity, error) {
 	// (Try to) decode address
-	_, err := protocol.DecodeAddress(address)
+	addr, err := DecodeAddress(address)
 	if err != nil {
 		return nil, err
 	}
@@ -49,18 +50,17 @@ func Import(address, signingKeyWif, encryptionKeyWif string) (*Identity, error) 
 	return &Identity{
 		SigningKey:    privSigningKey,
 		EncryptionKey: privEncryptionKey,
+		Address:       *addr,
 	}, nil
 }
 
-func (id *Identity) Export(version, stream int) (address, signingKeyWif,
-	encryptionKeyWif string, err error) {
-	addr := &protocol.Address{
-		Version: types.Varint(version),
-		Stream:  types.Varint(stream),
-		Ripe:    id.Hash(),
-	}
+// Export is responsible for exporting an identity to WIF and generating an
+// address on the basis of the stored version and stream numbers.
+func (id *Identity) Export() (address, signingKeyWif, encryptionKeyWif string,
+	err error) {
 
-	address, err = addr.Encode()
+	id.Address.Ripe = id.hash()
+	address, err = id.Address.Encode()
 	if err != nil {
 		err = errors.New("error encoding address: " + err.Error())
 		return
@@ -70,7 +70,8 @@ func (id *Identity) Export(version, stream int) (address, signingKeyWif,
 	return
 }
 
-func (id *Identity) Hash() []byte {
+// hash returns the ripemd160 hash used in the address
+func (id *Identity) hash() []byte {
 	sha := sha512.New()
 	ripemd := ripemd160.New()
 
@@ -84,7 +85,7 @@ func (id *Identity) Hash() []byte {
 // Create an identity based on a random number generator, with the required
 // number of initial zeros in front (minimum 1). Each initial zero requires
 // exponentially more work.
-func NewRandom(initialZeros uint64) (*Identity, error) {
+func NewRandom(initialZeros int) (*Identity, error) {
 	if initialZeros < 1 { // Cannot take this
 		return nil, errors.New("minimum 1 initial zero needed")
 	}
@@ -110,7 +111,7 @@ func NewRandom(initialZeros uint64) (*Identity, error) {
 		}
 
 		// We found our hash!
-		if bytes.Equal(id.Hash()[0:initialZeros], initialZeroBytes) {
+		if bytes.Equal(id.hash()[0:initialZeros], initialZeroBytes) {
 			break // stop calculations
 		}
 	}
@@ -166,7 +167,7 @@ func NewDeterministic(passphrase string, initialZeros uint64) (*Identity, error)
 		encryptionKeyNonce += 2
 
 		// We found our hash!
-		if bytes.Equal(id.Hash()[0:initialZeros], initialZeroBytes) {
+		if bytes.Equal(id.hash()[0:initialZeros], initialZeroBytes) {
 			break // stop calculations
 		}
 	}

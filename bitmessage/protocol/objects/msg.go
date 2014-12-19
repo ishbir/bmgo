@@ -1,6 +1,8 @@
 package objects
 
 import (
+	"bytes"
+	"encoding/binary"
 	"io"
 	"io/ioutil"
 
@@ -42,7 +44,7 @@ func (obj *MsgEncrypted) DeserializeReader(b io.Reader) error {
 
 // Version 2 and 3 messages
 type MsgUnencrypted interface {
-	// What version of the msg is it?
+	// What is the address version of the sender?
 	Version() int
 }
 
@@ -53,7 +55,7 @@ type MsgUnencryptedV3 struct {
 	// compatible changes to the public-key data included below.
 	AddressVersion types.Varint
 	// The sender's stream number
-	StreamNumber types.Varint
+	Stream types.Varint
 	// A bitfield of optional behaviors and features that can be expected from
 	// the node with this pubkey included in this message (the sender's pubkey).
 	Behaviour uint32
@@ -109,7 +111,7 @@ type MsgUnencryptedV2 struct {
 	// compatible changes to the public-key data included below.
 	AddressVersion types.Varint
 	// The sender's stream number
-	StreamNumber types.Varint
+	Stream types.Varint
 	// A bitfield of optional behaviors and features that can be expected from
 	// the node with this pubkey included in this message (the sender's pubkey).
 	Behaviour uint32
@@ -124,7 +126,7 @@ type MsgUnencryptedV2 struct {
 	// Message Encoding type
 	Encoding EncodingType
 	// Message Length
-	// MessageLength types.Varint
+	//MessageLength types.Varint
 
 	// The message
 	Message []byte
@@ -141,4 +143,93 @@ type MsgUnencryptedV2 struct {
 	// The ECDSA signature which covers everything from the msg_version to the
 	// ack_data.
 	Signature []byte
+}
+
+// Code taken from line 743 onwards on class_singleWorker.py
+func (obj *MsgUnencryptedV2) Serialize() []byte {
+	var b bytes.Buffer
+
+	b.Write(obj.AddressVersion.Serialize())
+	b.Write(obj.Stream.Serialize())
+	binary.Write(&b, binary.BigEndian, obj.Behaviour)
+	b.Write(obj.PubSigningKey[:])
+	b.Write(obj.PubEncryptionKey[:])
+	b.Write(obj.DestinationRipe[:])
+	b.Write(types.Varint(obj.Encoding).Serialize())
+	b.Write(types.Varint(len(obj.Message)).Serialize())
+	b.Write(obj.Message)
+	b.Write(types.Varint(len(obj.AckData)).Serialize())
+	b.Write(obj.AckData)
+	b.Write(types.Varint(len(obj.Signature)).Serialize())
+	b.Write(obj.Signature)
+
+	return b.Bytes()
+}
+
+func (obj *MsgUnencryptedV2) DeserializeReader(b io.Reader) error {
+	err := obj.AddressVersion.DeserializeReader(b)
+	if err != nil {
+		return types.DeserializeFailedError("address version")
+	}
+	err = obj.Stream.DeserializeReader(b)
+	if err != nil {
+		return types.DeserializeFailedError("address stream")
+	}
+	err = binary.Read(b, binary.BigEndian, &obj.Behaviour)
+	if err != nil {
+		return types.DeserializeFailedError("behaviour")
+	}
+	err = binary.Read(b, binary.BigEndian, &obj.PubSigningKey)
+	if err != nil {
+		return types.DeserializeFailedError("pubSigningKey")
+	}
+	err = binary.Read(b, binary.BigEndian, &obj.PubEncryptionKey)
+	if err != nil {
+		return types.DeserializeFailedError("pubEncryptionKey")
+	}
+	err = binary.Read(b, binary.BigEndian, &obj.DestinationRipe)
+	if err != nil {
+		return types.DeserializeFailedError("destination ripe")
+	}
+
+	var encoding types.Varint
+	err = encoding.DeserializeReader(b)
+	if err != nil {
+		return types.DeserializeFailedError("encoding")
+	}
+	obj.Encoding = EncodingType(encoding)
+
+	var msgLen, ackLen, sigLen types.Varint
+
+	err = msgLen.DeserializeReader(b)
+	if err != nil {
+		return types.DeserializeFailedError("message length")
+	}
+	obj.Message = make([]byte, msgLen)
+	err = binary.Read(b, binary.BigEndian, obj.Message)
+	if err != nil {
+		return types.DeserializeFailedError("message")
+	}
+
+	err = ackLen.DeserializeReader(b)
+	if err != nil {
+		return types.DeserializeFailedError("ackdata length")
+	}
+	obj.AckData = make([]byte, ackLen)
+	err = binary.Read(b, binary.BigEndian, obj.AckData)
+	if err != nil {
+		return types.DeserializeFailedError("ackdata")
+	}
+
+	err = sigLen.DeserializeReader(b)
+	if err != nil {
+		return types.DeserializeFailedError("signature length")
+	}
+	obj.Signature = make([]byte, sigLen)
+	err = binary.Read(b, binary.BigEndian, obj.Signature)
+	if err != nil {
+		return types.DeserializeFailedError("signature")
+	}
+
+	return nil
 }

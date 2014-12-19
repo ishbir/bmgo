@@ -33,7 +33,7 @@ func TestImportExport(t *testing.T) {
 			)
 		}
 
-		address, signingkey, encryptionkey, err := v.Export(4, 1)
+		address, signingkey, encryptionkey, err := v.Export()
 		if err != nil {
 			t.Error(
 				"for", pair.address,
@@ -69,7 +69,9 @@ func TestNewRandom(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	address, signingkey, encryptionkey, err := v.Export(4, 1)
+	v.Address.Version = 4
+	v.Address.Stream = 1
+	address, signingkey, encryptionkey, err := v.Export()
 	if err != nil {
 		t.Error("export failed, error:", err)
 		return
@@ -104,7 +106,9 @@ func TestNewDeterministic(t *testing.T) {
 		}
 		// Make sure to generate address of same version and stream
 		addr, _ := protocol.DecodeAddress(pair.address)
-		address, _, _, _ := id.Export(int(addr.Version), int(addr.Stream))
+		id.Address.Version = addr.Version
+		id.Address.Stream = addr.Stream
+		address, _, _, _ := id.Export()
 		if address != pair.address {
 			t.Error(
 				"for", pair.password,

@@ -347,8 +347,8 @@ func (msg *ObjectMessage) DeserializeReader(b io.Reader) error {
 }
 
 // Preserialize is responsible for embedding the public signing and encryption
-// keys, signing the unencrypted message, encrypting the object and then doing
-// the POW.
+// keys, signing the unencrypted message, encrypting the object, setting the
+// tags and then doing POW.
 func (msg *ObjectMessage) Preserialize(id *identity.Own,
 	target *identity.Foreign) error {
 	// Message signing
@@ -369,9 +369,31 @@ func (msg *ObjectMessage) Preserialize(id *identity.Own,
 			id.EncryptionKey.SerializeUncompressed()[1:],
 		)
 	}
-	// set the encryption key if its a pubkey to be encrypted
-	if _, ok := msg.Payload.(*objects.PubkeyUnencryptedV4); ok {
+	// tag, if it needs to be added
+	var tag []byte
+
+	switch msg.Payload.(type) {
+	// set the encryption key and tag for v4 pubkeys and v5 broadcasts
+	case *objects.PubkeyUnencryptedV4, *objects.BroadcastUnencryptedV5:
 		hash := id.Address.CalcDoubleHash()
+		privKey, err := elliptic.PrivateKeyFromRawBytes(elliptic.Secp256k1,
+			hash[:32])
+		if err != nil {
+			return errors.New("failed to create private key from address: " +
+				err.Error())
+		}
+		target = new(identity.Foreign)
+		target.EncryptionKey = &privKey.PublicKey
+		tag = hash[32:] // set the tag
+	// set encryption key for v4 broadcasts
+	case *objects.BroadcastUnencryptedV4AddressV2,
+		*objects.BroadcastUnencryptedV4AddressV3:
+		sha := sha512.New()
+		sha.Write(id.Address.Version.Serialize())
+		sha.Write(id.Address.Stream.Serialize())
+		sha.Write(id.Address.Ripe[:])
+		hash := sha.Sum(nil)
+
 		privKey, err := elliptic.PrivateKeyFromRawBytes(elliptic.Secp256k1,
 			hash[:32])
 		if err != nil {
@@ -382,12 +404,18 @@ func (msg *ObjectMessage) Preserialize(id *identity.Own,
 		target.EncryptionKey = &privKey.PublicKey
 	}
 
+	// encrypt the payload if it needs to be encrypted
 	if unenc, ok := msg.Payload.(EncryptablePayload); ok {
 		enc, err := unenc.Encrypt(target.EncryptionKey)
 		if err != nil {
-			return errors.New("encryption failed: " + err.Error())
+			return errors.New("payload encryption failed: " + err.Error())
 		}
 		msg.Payload = enc // set payload to encrypted object
+	}
+
+	// add a tag to the payload if it needs to be added
+	if taggable, ok := msg.Payload.(TaggableEncryptedPayload); ok {
+		taggable.SetTag(tag)
 	}
 	return nil
 }

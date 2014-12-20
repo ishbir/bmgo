@@ -6,6 +6,8 @@ import (
 	"io"
 	"io/ioutil"
 
+	"github.com/ishbir/elliptic"
+
 	"github.com/ishbir/bmgo/bitmessage/protocol/types"
 )
 
@@ -232,7 +234,25 @@ func (obj *PubkeyEncryptedV4) DeserializeReader(b io.Reader) error {
 	return nil
 }
 
+func (obj *PubkeyEncryptedV4) SetTag(tag []byte) {
+	if len(tag) != 32 {
+		panic("invalid tag length")
+	}
+	copy(obj.Tag[:], tag)
+}
+
 // When decrypted, a version 4 pubkey is the same as a verion 3 pubkey.
 type PubkeyUnencryptedV4 struct {
 	PubkeyV3
+}
+
+func (obj *PubkeyUnencryptedV4) Encrypt(key *elliptic.PublicKey) (
+	*PubkeyEncryptedV4, error) {
+	encData, err := elliptic.RandomPrivateKeyEncrypt(obj.Serialize(), key)
+	if err != nil {
+		return nil, err
+	}
+	encKey := new(PubkeyEncryptedV4)
+	encKey.EncryptedData = encData
+	return encKey, nil
 }

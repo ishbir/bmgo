@@ -6,6 +6,8 @@ import (
 	"io"
 	"io/ioutil"
 
+	"github.com/ishbir/elliptic"
+
 	"github.com/ishbir/bmgo/bitmessage/protocol/types"
 )
 
@@ -41,6 +43,13 @@ func (obj *BroadcastEncryptedV5) DeserializeReader(b io.Reader) error {
 	return nil
 }
 
+func (obj *BroadcastEncryptedV5) SetTag(tag []byte) {
+	if len(tag) != 32 {
+		panic("invalid tag length")
+	}
+	copy(obj.Tag[:], tag)
+}
+
 // Broadcast originating from an address version <= 3.
 type BroadcastEncryptedV4 struct {
 	// Encrypted broadcast data.
@@ -65,12 +74,44 @@ type BroadcastUnencryptedV4AddressV2 struct {
 	MsgUnencryptedV2
 }
 
+func (obj *BroadcastUnencryptedV4AddressV2) Encrypt(key *elliptic.PublicKey) (
+	*BroadcastEncryptedV4, error) {
+	return encryptBroadcastV4(obj.Serialize(), key)
+}
+
+func encryptBroadcastV4(payload []byte, key *elliptic.PublicKey) (
+	*BroadcastEncryptedV4, error) {
+	encData, err := elliptic.RandomPrivateKeyEncrypt(payload, key)
+	if err != nil {
+		return nil, err
+	}
+	encBroadcast := new(BroadcastEncryptedV4)
+	encBroadcast.EncryptedData = encData
+	return encBroadcast, nil
+}
+
 // Broadcast version == 4 and address version == 3.
 type BroadcastUnencryptedV4AddressV3 struct {
 	MsgUnencryptedV3
 }
 
+func (obj *BroadcastUnencryptedV4AddressV3) Encrypt(key *elliptic.PublicKey) (
+	*BroadcastEncryptedV4, error) {
+	return encryptBroadcastV4(obj.Serialize(), key)
+}
+
 // Broadcast version == 5 and address version == 4.
 type BroadcastUnencryptedV5 struct {
 	MsgUnencryptedV3
+}
+
+func (obj *BroadcastUnencryptedV5) Encrypt(key *elliptic.PublicKey) (
+	*BroadcastEncryptedV5, error) {
+	encData, err := elliptic.RandomPrivateKeyEncrypt(obj.Serialize(), key)
+	if err != nil {
+		return nil, err
+	}
+	encBroadcast := new(BroadcastEncryptedV5)
+	encBroadcast.EncryptedData = encData
+	return encBroadcast, nil
 }

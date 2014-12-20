@@ -6,6 +6,8 @@ import (
 	"io"
 	"io/ioutil"
 
+	"github.com/ishbir/elliptic"
+
 	"github.com/ishbir/bmgo/bitmessage/protocol/types"
 )
 
@@ -189,6 +191,22 @@ func (obj *MsgUnencryptedV2) SetSigningAndEncryptionKeys(sk, ek []byte) {
 	copy(obj.PubEncryptionKey[:], ek)
 }
 
+func (obj *MsgUnencryptedV2) Encrypt(key *elliptic.PublicKey) (*MsgEncrypted,
+	error) {
+	return encryptMessage(obj.Serialize(), key)
+}
+
+func encryptMessage(payload []byte, key *elliptic.PublicKey) (*MsgEncrypted,
+	error) {
+	encData, err := elliptic.RandomPrivateKeyEncrypt(payload, key)
+	if err != nil {
+		return nil, err
+	}
+	encMsg := new(MsgEncrypted)
+	encMsg.EncryptedData = encData
+	return encMsg, nil
+}
+
 // Used for person-to-person messages when the sender's address version >= 3.
 type MsgUnencryptedV3 struct {
 	// Sender's address version number. This is needed in order to calculate the
@@ -358,4 +376,9 @@ func (obj *MsgUnencryptedV3) SetSignature(sig []byte) {
 func (obj *MsgUnencryptedV3) SetSigningAndEncryptionKeys(sk, ek []byte) {
 	copy(obj.PubSigningKey[:], sk)
 	copy(obj.PubEncryptionKey[:], ek)
+}
+
+func (obj *MsgUnencryptedV3) Encrypt(key *elliptic.PublicKey) (*MsgEncrypted,
+	error) {
+	return encryptMessage(obj.Serialize(), key)
 }

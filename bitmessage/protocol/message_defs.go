@@ -72,7 +72,7 @@ type GetdataMessage struct {
 	Items []InvVector
 }
 
-// Define how the message is to be encoded.
+// ObjectType tells the type of payload that the object message contains.
 type ObjectType uint32
 
 const (
@@ -105,16 +105,24 @@ type SignablePayload interface {
 	SetSignature([]byte)
 }
 
-// PublicKeysAddable represents payload that requires addition of signing
+// PublicKeysAddablePayload represents payload that requires addition of signing
 // and encryption public keys to it.
 type PublicKeysAddablePayload interface {
 	// SetSigningAndEncryptionKeys sets the PubSigningKey and PubEncryptionKey
-	// fields of the payload
+	// fields of the payload.
 	SetSigningAndEncryptionKeys([]byte, []byte)
 }
 
+// EncryptablePayload represents payloads that need to be encrypted before being
+// sent on the network.
 type EncryptablePayload interface {
 	// Encrypt makes the payload encrypt itself for the target public key and
 	// return a transformed payload (the encrypted form of itself).
 	Encrypt(*elliptic.PublicKey) (Serializer, error)
+}
+
+// TaggableEncryptedPayload represents encrypted payloads that have a tag.
+type TaggableEncryptedPayload interface {
+	// SetTag is used to set the tag of the encrypted payload.
+	SetTag([]byte)
 }

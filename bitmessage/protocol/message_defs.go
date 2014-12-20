@@ -2,6 +2,7 @@ package protocol
 
 import (
 	"github.com/ishbir/bmgo/bitmessage/protocol/types"
+	"github.com/ishbir/elliptic"
 	"net"
 )
 
@@ -106,8 +107,14 @@ type SignablePayload interface {
 
 // PublicKeysAddable represents payload that requires addition of signing
 // and encryption public keys to it.
-type PublicKeysAddable interface {
+type PublicKeysAddablePayload interface {
 	// SetSigningAndEncryptionKeys sets the PubSigningKey and PubEncryptionKey
 	// fields of the payload
 	SetSigningAndEncryptionKeys([]byte, []byte)
+}
+
+type EncryptablePayload interface {
+	// Encrypt makes the payload encrypt itself for the target public key and
+	// return a transformed payload (the encrypted form of itself).
+	Encrypt(*elliptic.PublicKey) (Serializer, error)
 }

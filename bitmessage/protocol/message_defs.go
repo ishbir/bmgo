@@ -6,9 +6,6 @@ import (
 	"net"
 )
 
-// Included in every message
-const MessageMagic uint32 = 0xE9BEB4D9
-
 // The main packet/data structure used for P2P communication
 type messageHeader struct {
 	Magic         uint32   // 0xE9BEB4D9

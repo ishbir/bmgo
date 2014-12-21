@@ -21,18 +21,23 @@ var curve = elliptic.Secp256k1
 // encryption and signing keys, as well as the address that contains information
 // about stream number and address version.
 type Own struct {
-	SigningKey    *elliptic.PrivateKey
-	EncryptionKey *elliptic.PrivateKey
 	Address
+	SigningKey         *elliptic.PrivateKey
+	EncryptionKey      *elliptic.PrivateKey
+	NonceTrialsPerByte types.Varint
+	ExtraBytes         types.Varint
 }
 
 // Foreign contains the identity of the remote user, which includes the public
-// encryption and signing keys, as well as the address that contains information
-// about stream number and address version.
+// encryption and signing keys, the address that contains information
+// about stream number and address version and information determining the POW
+// accepted by the identity.
 type Foreign struct {
-	SigningKey    *elliptic.PublicKey
-	EncryptionKey *elliptic.PublicKey
 	Address
+	SigningKey         *elliptic.PublicKey
+	EncryptionKey      *elliptic.PublicKey
+	NonceTrialsPerByte types.Varint
+	ExtraBytes         types.Varint
 }
 
 // Import creates an Identity object from the Bitmessage address and Wallet

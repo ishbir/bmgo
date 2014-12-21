@@ -11,6 +11,7 @@ import (
 
 	"github.com/ishbir/elliptic"
 
+	"github.com/ishbir/bmgo/bitmessage/constants"
 	"github.com/ishbir/bmgo/bitmessage/identity"
 	"github.com/ishbir/bmgo/bitmessage/protocol/objects"
 	"github.com/ishbir/bmgo/bitmessage/protocol/types"
@@ -39,7 +40,8 @@ func CreateMessage(command string, payload []byte) []byte {
 
 	// Write the header
 	binary.Write(&b, binary.BigEndian,
-		&messageHeader{MessageMagic, byteCommand, uint32(len(payload)), checksum})
+		&messageHeader{constants.MessageMagic, byteCommand,
+			uint32(len(payload)), checksum})
 
 	// Write the payload
 	b.Write(payload)
@@ -60,7 +62,7 @@ func UnpackMessageHeader(raw []byte) (command string, payloadLength uint32,
 		return
 	}
 
-	if header.Magic != MessageMagic {
+	if header.Magic != constants.MessageMagic {
 		err = errors.New("invalid message magic: " + fmt.Sprint(header.Magic))
 	}
 
@@ -300,10 +302,6 @@ func (msg *ObjectMessage) HeaderSerialize() []byte {
 	return b.Bytes()
 }
 
-// For objects payloads that have the requisite features, the order of calling
-// various helper functions is:
-// 1. Preserialize()
-// 2. Serialize
 func (msg *ObjectMessage) Serialize() []byte {
 	var b bytes.Buffer
 
@@ -417,6 +415,9 @@ func (msg *ObjectMessage) Preserialize(id *identity.Own,
 	if taggable, ok := msg.Payload.(TaggableEncryptedPayload); ok {
 		taggable.SetTag(tag)
 	}
+
+	// do the POW on the now (almost complete) object message
+
 	return nil
 }
 

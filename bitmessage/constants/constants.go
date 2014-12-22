@@ -2,6 +2,8 @@
 // functioning.
 package constants
 
+import "time"
+
 const (
 	// The first 4 byte value of every message exchanged wiht a Bitmessage node.
 	MessageMagic uint32 = 0xE9BEB4D9
@@ -19,4 +21,11 @@ const (
 	// added to the payload length for use in calculating the proof of work
 	// target.
 	POWDefaultExtraBytes = 1000
+	// ObjectTTLBase contains the amount of time that an object should roughly
+	// be valid for.
+	ObjectTTLBase = 24 * time.Hour * 28
+	// ObjectTTLRandRange contains the amount of time that should be randomly
+	// added to or subtracted from TTLBase to get the exact duration that the
+	// object is valid for.
+	ObjectTTLRandRange = 5 * time.Minute
 )

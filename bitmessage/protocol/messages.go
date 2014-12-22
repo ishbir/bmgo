@@ -7,15 +7,23 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"net"
+	"time"
 
 	"github.com/ishbir/elliptic"
 
 	"github.com/ishbir/bmgo/bitmessage/constants"
 	"github.com/ishbir/bmgo/bitmessage/identity"
+	"github.com/ishbir/bmgo/bitmessage/pow"
 	"github.com/ishbir/bmgo/bitmessage/protocol/objects"
 	"github.com/ishbir/bmgo/bitmessage/protocol/types"
 )
+
+func init() {
+	// seed the random number generator
+	rand.Seed(time.Now().UnixNano())
+}
 
 // Return the size of the message header
 func MessageHeaderSize() int {
@@ -344,11 +352,24 @@ func (msg *ObjectMessage) DeserializeReader(b io.Reader) error {
 	return nil
 }
 
+// random generates a random int between the given range
+func random(min, max int) int {
+	return rand.Intn(max-min) + min
+}
+
 // Preserialize is responsible for embedding the public signing and encryption
-// keys, signing the unencrypted message, encrypting the object, setting the
-// tags and then doing POW.
+// keys, setting the POW parameters like nonce trials per byte and extra bytes,
+// signing the unencrypted message, encrypting the object, setting the tags,
+// calculating and setting the expiration time and then doing POW.
 func (msg *ObjectMessage) Preserialize(id *identity.Own,
 	target *identity.Foreign) error {
+	// calculate TTL of the object message based on the defined constant values
+	ttl := int(time.Duration(constants.ObjectTTLBase).Seconds()) +
+		random(-int(time.Duration(constants.ObjectTTLRandRange).Seconds()),
+			int(time.Duration(constants.ObjectTTLRandRange).Seconds()))
+	// set the expiration time based on TTL
+	msg.ExpiresTime = uint64(time.Now().Unix()) + uint64(ttl)
+
 	// Message signing
 	if signer, ok := msg.Payload.(SignablePayload); ok {
 		var b bytes.Buffer
@@ -415,9 +436,15 @@ func (msg *ObjectMessage) Preserialize(id *identity.Own,
 	if taggable, ok := msg.Payload.(TaggableEncryptedPayload); ok {
 		taggable.SetTag(tag)
 	}
+	// Our payload is ready. Do POW.
+	payload := msg.Payload.Serialize()
+	powTarget := pow.CalculateTarget(len(payload), ttl,
+		int(target.NonceTrialsPerByte), int(target.ExtraBytes))
 
-	// do the POW on the now (almost complete) object message
-
+	hash := sha512.New()
+	hash.Write(msg.HeaderSerialize())
+	hash.Write(payload)
+	msg.Nonce = pow.DoSequential(powTarget, hash.Sum(nil))
 	return nil
 }
 

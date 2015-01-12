@@ -10,18 +10,22 @@ import (
 	"time"
 )
 
-// CalculateTarget calculates the target POW value.
+// CalculateTarget calculates the target POW value. PayloadLength includes the
+// full length of the payload (inluding the width of the initial nonce field).
+// TTL is the time to live (in seconds). Information about NonceTrialsPerByte
+// and PayloadLengthExtraBytes can be found at:
 // https://bitmessage.org/wiki/Proof_of_work
 func CalculateTarget(PayloadLength, TTL, NonceTrialsPerByte,
 	PayloadLengthExtraBytes int) uint64 {
-	payloadLength := float64(PayloadLength)
-	payloadLengthExtraBytes := float64(PayloadLengthExtraBytes)
-	ttl := float64(TTL)
-	nonceTrialsPerByte := float64(NonceTrialsPerByte)
-
-	return uint64(float64(2^64) / (nonceTrialsPerByte * (payloadLength +
-		payloadLengthExtraBytes + ((ttl * (payloadLength + payloadLengthExtraBytes)) /
-		float64(2^16)))))
+	// All these type conversions are needed for interoperability with Python
+	// which casts types back to int after performing division. Clearly
+	// something that Atheros did not think about.
+	return uint64(math.Pow(2, 64) /
+		float64(uint64(
+			uint64(NonceTrialsPerByte)*(uint64(PayloadLength)+uint64(PayloadLengthExtraBytes)+
+				uint64(
+					float64(TTL)*(float64(PayloadLength)+float64(PayloadLengthExtraBytes))/
+						math.Pow(2, 16))))))
 }
 
 // Check checks if the POW that was done for an object is sufficient.
@@ -57,6 +61,9 @@ func Check(objectData []byte, PayloadLengthExtraBytes, NonceTrialsPerByte int) b
 		return false
 	}
 }
+
+// Do is the signature of a POW implementation that returns a nonce value.
+type Do func(target uint64, initialHash []byte) uint64
 
 // DoSequential does the POW sequentially and returns the nonce value.
 func DoSequential(target uint64, initialHash []byte) uint64 {

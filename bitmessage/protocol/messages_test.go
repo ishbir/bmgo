@@ -219,3 +219,19 @@ func TestGetdataMessage(t *testing.T) {
 func TestObjectMessage(t *testing.T) {
 
 }
+
+func TestGetpubkeyObject(t *testing.T) {
+
+}
+
+func TestPubkeyObject(t *testing.T) {
+
+}
+
+func TestMsgObject(t *testing.T) {
+
+}
+
+func TestBroadcastObject(t *testing.T) {
+
+}

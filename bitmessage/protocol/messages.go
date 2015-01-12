@@ -444,6 +444,7 @@ func (msg *ObjectMessage) Preserialize(id *identity.Own,
 	hash := sha512.New()
 	hash.Write(msg.HeaderSerialize())
 	hash.Write(payload)
+	// TODO add logic for choosing which POW implementation to use
 	msg.Nonce = pow.DoSequential(powTarget, hash.Sum(nil))
 	return nil
 }

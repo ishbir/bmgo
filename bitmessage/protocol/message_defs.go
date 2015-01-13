@@ -4,6 +4,7 @@ import (
 	"github.com/ishbir/bmgo/bitmessage/protocol/types"
 	"github.com/ishbir/elliptic"
 	"net"
+	"time"
 )
 
 // The main packet/data structure used for P2P communication
@@ -84,8 +85,12 @@ const (
 // a type, like 'msg', or 'broadcast'. To be a valid object, the Proof Of Work
 // must be done (which is stored in Nonce).
 type ObjectMessage struct {
-	Nonce       uint64
-	ExpiresTime uint64
+	Nonce uint64
+	// TTL tells how long the object message should be valid from the time of
+	// PoW. It is not serialized but is used, along with a random interval of
+	// time defined in constants (ObjectTTLRandRange), to calculate expiresTime.
+	TTL         time.Duration
+	expiresTime uint64 // not meant to be assigned, calculated in Preserialize
 	ObjectType  ObjectType
 	Version     types.Varint
 	Stream      types.Varint

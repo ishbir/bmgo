@@ -3,10 +3,16 @@ package protocol
 import (
 	"bytes"
 	"fmt"
-	"github.com/ishbir/bmgo/bitmessage/protocol/types"
+	"io"
+	"io/ioutil"
 	"net"
 	"reflect"
 	"testing"
+	"time"
+
+	"github.com/ishbir/bmgo/bitmessage/identity"
+	"github.com/ishbir/bmgo/bitmessage/protocol/objects"
+	"github.com/ishbir/bmgo/bitmessage/protocol/types"
 )
 
 type messageTestPair struct {
@@ -216,8 +222,72 @@ func TestGetdataMessage(t *testing.T) {
 
 }
 
-func TestObjectMessage(t *testing.T) {
+type bytesPayload struct {
+	bytes []byte
+}
 
+func (payload *bytesPayload) Serialize() []byte {
+	return payload.bytes
+}
+
+func (payload *bytesPayload) DeserializeReader(b io.Reader) error {
+	var err error
+	payload.bytes, err = ioutil.ReadAll(b)
+	if err != nil {
+		return types.DeserializeFailedError("bytes")
+	}
+	return nil
+}
+
+var ownIdentity *identity.Own
+var foreignIdentity *identity.Foreign
+
+func init() {
+	ownIdentity, err := identity.NewRandom(1)
+	if err != nil {
+		panic("failed to generate identity")
+	}
+	foreignIdentity = ownIdentity.ToForeign()
+}
+
+func TestObjectMessage(t *testing.T) {
+	msg := ObjectMessage{
+		TTL:        time.Hour,     // 1 hour
+		ObjectType: ObjectType(6), // undefined
+		Version:    types.Varint(8),
+		Stream:     types.Varint(1),
+		Payload:    &bytesPayload{bytes: []byte{0x54, 0xA4, 0x4E, 0x9F}},
+	}
+	msg.Preserialize(nil, foreignIdentity)
+	raw := msg.Serialize()
+
+	msg1 := new(ObjectMessage)
+	DeserializeTo(msg1, raw[MessageHeaderSize():])
+
+	if msg1.Nonce != msg.Nonce {
+		t.Error("for Nonce got", msg1.Nonce, "expected", msg.Nonce)
+	}
+	if msg1.expiresTime != msg.expiresTime {
+		t.Error("for expiresTime got", msg1.expiresTime, "expected",
+			msg.expiresTime)
+	}
+	if msg1.ObjectType != msg.ObjectType {
+		t.Error("for ObjectType got", msg1.ObjectType, "expected",
+			msg.ObjectType)
+	}
+	if msg1.Version != msg.Version {
+		t.Error("for Version got", msg1.Version, "expected", msg.Version)
+	}
+	if msg1.Stream != msg.Stream {
+		t.Error("for Stream got", msg1.Stream, "expected", msg.Stream)
+	}
+	if _, ok := msg1.Payload.(*objects.Unrecognized); !ok {
+		t.Error("for Payload, did not get Unrecognized payload type")
+	}
+	if !reflect.DeepEqual(msg1.Payload.Serialize(), msg.Payload.Serialize()) {
+		t.Error("for Payload got", msg1.Payload.Serialize(), "expected",
+			msg.Payload.Serialize())
+	}
 }
 
 func TestGetpubkeyObject(t *testing.T) {

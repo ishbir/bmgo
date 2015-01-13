@@ -12,6 +12,7 @@ import (
 	"github.com/ishbir/elliptic"
 	"golang.org/x/crypto/ripemd160"
 
+	"github.com/ishbir/bmgo/bitmessage/constants"
 	"github.com/ishbir/bmgo/bitmessage/protocol/types"
 )
 
@@ -40,6 +41,18 @@ type Foreign struct {
 	ExtraBytes         types.Varint
 }
 
+// ToForeign turns the Own identity object into Foreign identity object that can
+// then be used in broadcasts and wherever else is required.
+func (id *Own) ToForeign() *Foreign {
+	return &Foreign{
+		Address:            id.Address,
+		SigningKey:         &id.SigningKey.PublicKey,
+		EncryptionKey:      &id.EncryptionKey.PublicKey,
+		NonceTrialsPerByte: id.NonceTrialsPerByte,
+		ExtraBytes:         id.ExtraBytes,
+	}
+}
+
 // Import creates an Identity object from the Bitmessage address and Wallet
 // Import Format (WIF) signing and encryption keys.
 func Import(address, signingKeyWif, encryptionKeyWif string) (*Own, error) {
@@ -62,9 +75,11 @@ func Import(address, signingKeyWif, encryptionKeyWif string) (*Own, error) {
 	}
 
 	return &Own{
-		SigningKey:    privSigningKey,
-		EncryptionKey: privEncryptionKey,
-		Address:       *addr,
+		SigningKey:         privSigningKey,
+		EncryptionKey:      privEncryptionKey,
+		Address:            *addr,
+		NonceTrialsPerByte: constants.POWDefaultNonceTrialsPerByte,
+		ExtraBytes:         constants.POWDefaultExtraBytes,
 	}, nil
 }
 
@@ -130,6 +145,9 @@ func NewRandom(initialZeros int) (*Own, error) {
 		}
 	}
 
+	id.NonceTrialsPerByte = constants.POWDefaultNonceTrialsPerByte
+	id.ExtraBytes = constants.POWDefaultExtraBytes
+
 	return id, nil
 }
 
@@ -185,6 +203,10 @@ func NewDeterministic(passphrase string, initialZeros uint64) (*Own, error) {
 			break // stop calculations
 		}
 	}
+
+	id.NonceTrialsPerByte = constants.POWDefaultNonceTrialsPerByte
+	id.ExtraBytes = constants.POWDefaultExtraBytes
+
 	return id, nil
 }
 

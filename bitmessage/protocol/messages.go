@@ -16,6 +16,7 @@ import (
 	"github.com/ishbir/bmgo/bitmessage/constants"
 	"github.com/ishbir/bmgo/bitmessage/identity"
 	"github.com/ishbir/bmgo/bitmessage/pow"
+	"github.com/ishbir/bmgo/bitmessage/protocol/helpers"
 	"github.com/ishbir/bmgo/bitmessage/protocol/objects"
 	"github.com/ishbir/bmgo/bitmessage/protocol/types"
 )
@@ -303,7 +304,7 @@ func (msg *GetdataMessage) DeserializeReader(b io.Reader) error {
 // (excluding the nonce) for use in signing of the payload.
 func (msg *ObjectMessage) HeaderSerialize() []byte {
 	var b bytes.Buffer
-	binary.Write(&b, binary.BigEndian, msg.ExpiresTime)
+	binary.Write(&b, binary.BigEndian, msg.expiresTime)
 	binary.Write(&b, binary.BigEndian, uint32(msg.ObjectType))
 	b.Write(msg.Version.Serialize())
 	b.Write(msg.Stream.Serialize())
@@ -325,7 +326,7 @@ func (msg *ObjectMessage) DeserializeReader(b io.Reader) error {
 	if err != nil {
 		return types.DeserializeFailedError("nonce")
 	}
-	err = binary.Read(b, binary.BigEndian, &msg.ExpiresTime)
+	err = binary.Read(b, binary.BigEndian, &msg.expiresTime)
 	if err != nil {
 		return types.DeserializeFailedError("expiresTime")
 	}
@@ -364,11 +365,11 @@ func random(min, max int) int {
 func (msg *ObjectMessage) Preserialize(id *identity.Own,
 	target *identity.Foreign) error {
 	// calculate TTL of the object message based on the defined constant values
-	ttl := int(time.Duration(constants.ObjectTTLBase).Seconds()) +
+	ttl := int(msg.TTL.Seconds()) +
 		random(-int(time.Duration(constants.ObjectTTLRandRange).Seconds()),
 			int(time.Duration(constants.ObjectTTLRandRange).Seconds()))
 	// set the expiration time based on TTL
-	msg.ExpiresTime = uint64(time.Now().Unix()) + uint64(ttl)
+	msg.expiresTime = uint64(time.Now().Add(msg.TTL).Unix())
 
 	// Message signing
 	if signer, ok := msg.Payload.(SignablePayload); ok {
@@ -499,4 +500,12 @@ func (msg *ObjectMessage) setPayloadType() {
 			msg.Payload = corrupt
 		}
 	}
+}
+
+// CalculateInvVector returns an InvVector for the corresponding message.
+func CalculateInvVector(message []byte) InvVector {
+	hash := helpers.CalculateDoubleSHA512Hash(message)
+	var invVector InvVector
+	copy(invVector[:], hash[:32])
+	return invVector
 }

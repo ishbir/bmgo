@@ -252,7 +252,7 @@ func init() {
 
 func TestObjectMessage(t *testing.T) {
 	msg := ObjectMessage{
-		TTL:        time.Hour,     // 1 hour
+		TTL:        time.Minute,   // only a test
 		ObjectType: ObjectType(6), // undefined
 		Version:    types.Varint(8),
 		Stream:     types.Varint(1),

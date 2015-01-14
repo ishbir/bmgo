@@ -7,7 +7,6 @@ import (
 	"crypto/sha512"
 	"encoding/binary"
 	"math"
-	"runtime"
 	"time"
 )
 
@@ -90,12 +89,11 @@ func DoSequential(target uint64, initialHash []byte) uint64 {
 // DoParallel does the POW using cpuCount number of goroutines and returns the
 // nonce value. TODO: Optimize parallel and make it stable. Performance is very
 // volatile at the moment.
-func DoParallel(target uint64, initialHash []byte, cpuCount int) uint64 {
-	runtime.GOMAXPROCS(cpuCount)
+func DoParallel(target uint64, initialHash []byte, parallelCount int) uint64 {
 	done := make(chan bool)
 	nonceValue := make(chan uint64, 1)
 
-	for i := 0; i < cpuCount; i++ {
+	for i := 0; i < parallelCount; i++ {
 		go func() {
 			var nonce uint64 = uint64(i)
 			nonceBytes := make([]byte, 8)
@@ -107,7 +105,7 @@ func DoParallel(target uint64, initialHash []byte, cpuCount int) uint64 {
 				case <-done: // some other goroutine already finished
 					return
 				default:
-					nonce += uint64(cpuCount) // increment by cpuCount instead of 1
+					nonce += uint64(parallelCount) // increment by parallelCount
 					binary.BigEndian.PutUint64(nonceBytes, nonce)
 					sha1.Write(nonceBytes)
 					sha1.Write(initialHash)
@@ -119,14 +117,12 @@ func DoParallel(target uint64, initialHash []byte, cpuCount int) uint64 {
 				}
 			}
 			nonceValue <- nonce
-			for j := 0; j < cpuCount; j++ {
+			for j := 0; j < parallelCount; j++ {
 				done <- true
 			}
 		}()
 	}
-	n := <-nonceValue
-	runtime.GOMAXPROCS(1) // set back to 1
-	return n
+	return <-nonceValue
 }
 
 // DoGPU does the POW on an OpenCL supported device and returns the nonce value.

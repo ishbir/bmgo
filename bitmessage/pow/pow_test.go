@@ -2,6 +2,7 @@ package pow
 
 import (
 	"crypto/rand"
+	"runtime"
 	"testing"
 )
 
@@ -15,6 +16,7 @@ func init() {
 	if err != nil {
 		panic("unable to read random bytes: " + err.Error())
 	}
+	runtime.GOMAXPROCS(runtime.NumCPU())
 }
 
 type calculateTargetTest struct {
@@ -69,7 +71,8 @@ func TestDoSequential(t *testing.T) {
 
 func TestDoParallel(t *testing.T) {
 	for n, testcase := range doTestCases {
-		nonce := DoParallel(testcase.target, testcase.initialHash, 4)
+		nonce := DoParallel(testcase.target, testcase.initialHash,
+			runtime.NumCPU())
 		if nonce < testcase.nonce { // >= is permitted
 			t.Error("for case", n+1, "got nonce", nonce, "expected",
 				testcase.nonce)
@@ -85,7 +88,8 @@ func BenchmarkDoSequential(b *testing.B) {
 }
 
 func BenchmarkDoParallel(b *testing.B) {
-	DoParallel(benchmarkCase.target, benchmarkCase.initialHash, 4)
+	DoParallel(benchmarkCase.target, benchmarkCase.initialHash,
+		runtime.NumCPU())
 }
 
 func TestCheck(t *testing.T) {

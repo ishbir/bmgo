@@ -99,6 +99,14 @@ func (id *Own) Export() (address, signingKeyWif, encryptionKeyWif string,
 	return
 }
 
+// CreateAddress populates the Address object within the identity based on the
+// provided version and stream values and also generates
+func (id *Own) CreateAddress(version, stream types.Varint) {
+	id.Address.Version = version
+	id.Address.Stream = stream
+	copy(id.Address.Ripe[:], id.hash())
+}
+
 // hash returns the ripemd160 hash used in the address
 func (id *Own) hash() []byte {
 	sha := sha512.New()
@@ -113,7 +121,7 @@ func (id *Own) hash() []byte {
 
 // Create an identity based on a random number generator, with the required
 // number of initial zeros in front (minimum 1). Each initial zero requires
-// exponentially more work.
+// exponentially more work. Note that this does not create an address.
 func NewRandom(initialZeros int) (*Own, error) {
 	if initialZeros < 1 { // Cannot take this
 		return nil, errors.New("minimum 1 initial zero needed")
@@ -151,7 +159,8 @@ func NewRandom(initialZeros int) (*Own, error) {
 	return id, nil
 }
 
-// Create identities based on a deterministic passphrase.
+// Create identities based on a deterministic passphrase. Note that this does
+// not create an address.
 func NewDeterministic(passphrase string, initialZeros uint64) (*Own, error) {
 	if initialZeros < 1 { // Cannot take this
 		return nil, errors.New("minimum 1 initial zero needed")

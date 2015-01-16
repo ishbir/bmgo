@@ -89,6 +89,8 @@ type ObjectMessage struct {
 	// TTL tells how long the object message should be valid from the time of
 	// PoW. It is not serialized but is used, along with a random interval of
 	// time defined in constants (ObjectTTLRandRange), to calculate expiresTime.
+	// Has to be greater than the duration specified in ObjectTTLRandRange or
+	// the result might turn out to be negative.
 	TTL         time.Duration
 	expiresTime uint64 // not meant to be assigned, calculated in Preserialize
 	ObjectType  ObjectType

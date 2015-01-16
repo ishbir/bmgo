@@ -365,9 +365,10 @@ func random(min, max int) int {
 func (msg *ObjectMessage) Preserialize(id *identity.Own,
 	target *identity.Foreign) error {
 	// calculate TTL of the object message based on the defined constant values
-	ttl := int(msg.TTL.Seconds()) +
-		random(-int(time.Duration(constants.ObjectTTLRandRange).Seconds()),
-			int(time.Duration(constants.ObjectTTLRandRange).Seconds()))
+	msg.TTL += time.Second * time.Duration(random(
+		-int(time.Duration(constants.ObjectTTLRandRange).Seconds()),
+		int(time.Duration(constants.ObjectTTLRandRange).Seconds())))
+	ttl := int(msg.TTL.Seconds())
 	// set the expiration time based on TTL
 	msg.expiresTime = uint64(time.Now().Add(msg.TTL).Unix())
 
@@ -439,7 +440,10 @@ func (msg *ObjectMessage) Preserialize(id *identity.Own,
 	}
 	// Our payload is ready. Do POW.
 	payload := msg.Payload.Serialize()
-	powTarget := pow.CalculateTarget(len(payload), ttl,
+	objHeader := msg.HeaderSerialize()
+	payloadLength := len(payload) + len(objHeader) + 8 // nonce length also
+
+	powTarget := pow.CalculateTarget(payloadLength, ttl,
 		int(target.NonceTrialsPerByte), int(target.ExtraBytes))
 
 	hash := sha512.New()

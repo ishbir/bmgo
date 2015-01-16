@@ -148,3 +148,9 @@ func (addr *Address) CalcDoubleHash() []byte {
 	b.Write(addr.Ripe[:])
 	return helpers.CalculateDoubleSHA512Hash(b.Bytes())
 }
+
+func (addr *Address) Tag() [32]byte {
+	var a [32]byte
+	copy(a[:], addr.CalcDoubleHash()[32:])
+	return a
+}

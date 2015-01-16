@@ -8,7 +8,7 @@ import (
 
 const nonceTrialsPerByte = 1000
 const payloadLengthExtraBytes = 1000
-const lifetime = 60 * 60 * 24 * 5 // 5 days
+
 var payload []byte = make([]byte, 3402)
 
 func init() {
@@ -31,6 +31,9 @@ var calculateTargetTestCases = []calculateTargetTest{
 	{60 * 60 * 24 * 28, 563421, 862017809},
 	{60 * 60 * 24 * 90, 87996, 1732319784},
 	{60 * 60 * 24 * 45, 478622, 637550899},
+	{216068, 46, 4073927578116},
+	{21000, 19, 13603793564682},
+	{216170, 46, 88888},
 }
 
 func TestCalculateTarget(t *testing.T) {

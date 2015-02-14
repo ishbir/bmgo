@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ishbir/bmgo/bitmessage/constants"
 	"github.com/ishbir/bmgo/bitmessage/identity"
 	"github.com/ishbir/bmgo/bitmessage/pow"
 	"github.com/ishbir/bmgo/bitmessage/protocol/objects"
@@ -253,6 +254,8 @@ func init() {
 	if err != nil {
 		panic("failed to generate identity 2")
 	}
+	ownId1.CreateAddress(4, 1)
+	ownId2.CreateAddress(4, 1)
 }
 
 func TestObjectMessage(t *testing.T) {
@@ -263,7 +266,11 @@ func TestObjectMessage(t *testing.T) {
 		Stream:     types.Varint(1),
 		Payload:    &bytesPayload{bytes: []byte{0x54, 0xA4, 0x4E, 0x9F}},
 	}
-	msg.Preserialize(nil, ownId1.ToForeign())
+	err := msg.Preserialize(nil, ownId1.ToForeign())
+	if err != nil {
+		t.Fatal("preserialize error:", err.Error())
+	}
+
 	raw := msg.Serialize()
 
 	msg1 := new(ObjectMessage)
@@ -299,7 +306,7 @@ func TestObjectMessage(t *testing.T) {
 	}
 }
 
-func TestGetpubkeyObject(t *testing.T) {
+func TestGetpubkeyV4Object(t *testing.T) {
 	msg := ObjectMessage{
 		TTL:        time.Hour*24*2 + time.Hour*12,
 		ObjectType: GetpubkeyObject,
@@ -309,7 +316,11 @@ func TestGetpubkeyObject(t *testing.T) {
 			Tag: ownId2.Address.Tag(),
 		},
 	}
-	msg.Preserialize(ownId1, ownId2.ToForeign())
+	err := msg.Preserialize(nil, nil)
+	if err != nil {
+		t.Fatal("preserialize error:", err.Error())
+	}
+
 	raw := msg.Serialize()
 
 	msg1 := new(ObjectMessage)
@@ -325,13 +336,88 @@ func TestGetpubkeyObject(t *testing.T) {
 		t.Error("for Payload got", msg1.Payload.Serialize(), "expected",
 			msg.Payload.Serialize())
 	}
-	if !pow.Check(raw[MessageHeaderSize():], int(ownId1.ExtraBytes),
-		int(ownId1.NonceTrialsPerByte)) {
+	if !pow.Check(raw[MessageHeaderSize():], constants.POWDefaultExtraBytes,
+		constants.POWDefaultNonceTrialsPerByte) {
 		t.Error("nonce check failed")
 	}
 }
 
-func TestPubkeyObject(t *testing.T) {
+func TestGetpubkeyV3Object(t *testing.T) {
+	msg := ObjectMessage{
+		TTL:        time.Hour*24*2 + time.Hour*12,
+		ObjectType: GetpubkeyObject,
+		Version:    3,
+		Stream:     1,
+		Payload: &objects.GetpubkeyV3{
+			Ripe: ownId2.Address.Ripe,
+		},
+	}
+	err := msg.Preserialize(nil, nil)
+	if err != nil {
+		t.Fatal("preserialize error:", err.Error())
+	}
+
+	raw := msg.Serialize()
+
+	msg1 := new(ObjectMessage)
+	DeserializeTo(msg1, raw[MessageHeaderSize():])
+
+	if msg1.ObjectType != GetpubkeyObject {
+		t.Error("for ObjectType got", msg1.ObjectType, "expected GetpubkeyObject")
+	}
+	if _, ok := msg1.Payload.(*objects.GetpubkeyV3); !ok {
+		t.Error("for Payload, did not get GetpubkeyV3 object type")
+	}
+	if !reflect.DeepEqual(msg1.Payload.Serialize(), msg.Payload.Serialize()) {
+		t.Error("for Payload got", msg1.Payload.Serialize(), "expected",
+			msg.Payload.Serialize())
+	}
+	if !pow.Check(raw[MessageHeaderSize():], constants.POWDefaultExtraBytes,
+		constants.POWDefaultNonceTrialsPerByte) {
+		t.Error("nonce check failed")
+	}
+}
+
+func TestPubkeyV2Object(t *testing.T) {
+	msg := ObjectMessage{
+		TTL:        time.Hour * 24 * 10,
+		ObjectType: PubkeyObject,
+		Version:    2,
+		Stream:     1,
+		Payload: &objects.PubkeyV2{
+			Behaviour: (0x01 << 31), // we need ack
+		},
+	}
+	err := msg.Preserialize(ownId1, nil) // set our keys
+	if err != nil {
+		t.Fatal("preserialize error:", err.Error())
+	}
+
+	raw := msg.Serialize()
+	msg1 := new(ObjectMessage)
+	DeserializeTo(msg1, raw[MessageHeaderSize():])
+
+	if msg1.ObjectType != PubkeyObject {
+		t.Error("for ObjectType got", msg1.ObjectType, "expected PubkeyObject")
+	}
+	if _, ok := msg1.Payload.(*objects.PubkeyV2); !ok {
+		t.Error("for Payload, did not get GetpubkeyV2 object type")
+	}
+	if !reflect.DeepEqual(msg1.Payload.Serialize(), msg.Payload.Serialize()) {
+		t.Error("for Payload got", msg1.Payload.Serialize(), "expected",
+			msg.Payload.Serialize())
+	}
+	if !pow.Check(raw[MessageHeaderSize():], constants.POWDefaultExtraBytes,
+		constants.POWDefaultNonceTrialsPerByte) {
+		t.Error("nonce check failed")
+	}
+}
+
+func TestPubkeyV3Object(t *testing.T) {
+
+}
+
+func TestPubkeyV4Object(t *testing.T) {
 
 }
 

@@ -361,7 +361,9 @@ func random(min, max int) int {
 // Preserialize is responsible for embedding the public signing and encryption
 // keys, setting the POW parameters like nonce trials per byte and extra bytes,
 // signing the unencrypted message, encrypting the object, setting the tags,
-// calculating and setting the expiration time and then doing POW.
+// calculating and setting the expiration time and then doing POW. The function
+// is meant to be used only when the object is created from scratch, not when
+// it is being propogated.
 func (msg *ObjectMessage) Preserialize(id *identity.Own,
 	target *identity.Foreign) error {
 	// calculate TTL of the object message based on the defined constant values
@@ -423,6 +425,20 @@ func (msg *ObjectMessage) Preserialize(id *identity.Own,
 		}
 		target = new(identity.Foreign)
 		target.EncryptionKey = &privKey.PublicKey
+	// set network default POW parameters for objects that are meant to not be
+	// destination client specific
+	case *objects.PubkeyV2, *objects.PubkeyV3,
+		*objects.GetpubkeyV3, *objects.GetpubkeyV4:
+		target = new(identity.Foreign)
+
+	}
+	// Enforce minimum POW requirements. This also sets POW parameters for
+	// foreign identities generated previously.
+	if target.NonceTrialsPerByte < constants.POWDefaultNonceTrialsPerByte {
+		target.NonceTrialsPerByte = constants.POWDefaultNonceTrialsPerByte
+	}
+	if target.ExtraBytes < constants.POWDefaultNonceTrialsPerByte {
+		target.ExtraBytes = constants.POWDefaultNonceTrialsPerByte
 	}
 
 	// encrypt the payload if it needs to be encrypted

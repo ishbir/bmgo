@@ -100,7 +100,7 @@ func (id *Own) Export() (address, signingKeyWif, encryptionKeyWif string,
 }
 
 // CreateAddress populates the Address object within the identity based on the
-// provided version and stream values and also generates
+// provided version and stream values and also generates the ripe.
 func (id *Own) CreateAddress(version, stream types.Varint) {
 	id.Address.Version = version
 	id.Address.Stream = stream

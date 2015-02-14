@@ -17,10 +17,10 @@ type PubkeyV2 struct {
 	// the node receiving the message.
 	Behaviour uint32
 	// The ECC public key used for signing (uncompressed format; normally
-	// prepended with \x04 )
+	// prepended with 0x04)
 	PubSigningKey [64]byte
 	// The ECC public key used for encryption (uncompressed format; normally
-	// prepended with \x04 )
+	// prepended with 0x04)
 	PubEncryptionKey [64]byte
 }
 
@@ -62,10 +62,10 @@ type PubkeyV3 struct {
 	// the node receiving the message.
 	Behaviour uint32
 	// The ECC public key used for signing (uncompressed format; normally
-	// prepended with \x04 )
+	// prepended with 0x04)
 	PubSigningKey [64]byte
 	// The ECC public key used for encryption (uncompressed format; normally
-	// prepended with \x04 )
+	// prepended with 0x04)
 	PubEncryptionKey [64]byte
 	// Used to calculate the difficulty target of messages accepted by this
 	// node. The higher this value, the more difficult the Proof of Work must be

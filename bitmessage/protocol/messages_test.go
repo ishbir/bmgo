@@ -260,8 +260,8 @@ func init() {
 
 func TestObjectMessage(t *testing.T) {
 	msg := ObjectMessage{
-		TTL:        time.Hour * 15, // only a test
-		ObjectType: ObjectType(6),  // undefined
+		TTL:        time.Hour,
+		ObjectType: ObjectType(6), // undefined
 		Version:    types.Varint(8),
 		Stream:     types.Varint(1),
 		Payload:    &bytesPayload{bytes: []byte{0x54, 0xA4, 0x4E, 0x9F}},
@@ -308,7 +308,7 @@ func TestObjectMessage(t *testing.T) {
 
 func TestGetpubkeyV4Object(t *testing.T) {
 	msg := ObjectMessage{
-		TTL:        time.Hour*24*2 + time.Hour*12,
+		TTL:        time.Hour,
 		ObjectType: GetpubkeyObject,
 		Version:    4,
 		Stream:     1,
@@ -344,7 +344,7 @@ func TestGetpubkeyV4Object(t *testing.T) {
 
 func TestGetpubkeyV3Object(t *testing.T) {
 	msg := ObjectMessage{
-		TTL:        time.Hour*24*2 + time.Hour*12,
+		TTL:        time.Hour,
 		ObjectType: GetpubkeyObject,
 		Version:    3,
 		Stream:     1,
@@ -380,7 +380,7 @@ func TestGetpubkeyV3Object(t *testing.T) {
 
 func TestPubkeyV2Object(t *testing.T) {
 	msg := ObjectMessage{
-		TTL:        time.Hour * 24 * 10,
+		TTL:        time.Hour,
 		ObjectType: PubkeyObject,
 		Version:    2,
 		Stream:     1,
@@ -417,7 +417,7 @@ func TestPubkeyV2Object(t *testing.T) {
 
 func TestPubkeyV3Object(t *testing.T) {
 	msg := ObjectMessage{
-		TTL:        time.Hour * 24 * 10,
+		TTL:        time.Hour,
 		ObjectType: PubkeyObject,
 		Version:    3,
 		Stream:     1,
@@ -429,6 +429,8 @@ func TestPubkeyV3Object(t *testing.T) {
 	if err != nil {
 		t.Fatal("preserialize error:", err.Error())
 	}
+
+	// TODO check if signing was done
 
 	raw := msg.Serialize()
 	msg1 := new(ObjectMessage)
@@ -453,7 +455,55 @@ func TestPubkeyV3Object(t *testing.T) {
 }
 
 func TestPubkeyV4Object(t *testing.T) {
+	msg := ObjectMessage{
+		TTL:        time.Hour,
+		ObjectType: PubkeyObject,
+		Version:    4,
+		Stream:     1,
+		Payload: &objects.PubkeyUnencryptedV4{
+			objects.PubkeyV3{
+				Behaviour: (0x01 << 31), // we need ack
+			},
+		},
+	}
 
+	if _, ok := msg.Payload.(EncryptablePayload); !ok {
+		t.Fatal("cannot be encrypted")
+	}
+
+	err := msg.Preserialize(ownId1, nil) // set our keys
+	if err != nil {
+		t.Fatal("preserialize error:", err.Error())
+	}
+
+	// check if Preserialize encrypted successfully
+	if _, ok := msg.Payload.(*objects.PubkeyEncryptedV4); !ok {
+		t.Error("for Payload, did not get PubkeyEncryptedV4 object type")
+	}
+
+	// TODO check if signing was done
+
+	raw := msg.Serialize()
+	msg1 := new(ObjectMessage)
+	DeserializeTo(msg1, raw[MessageHeaderSize():])
+
+	if msg1.ObjectType != PubkeyObject {
+		t.Error("for ObjectType got", msg1.ObjectType, "expected PubkeyObject")
+	}
+	if _, ok := msg1.Payload.(*objects.PubkeyEncryptedV4); !ok {
+		t.Error("for Payload, did not get PubkeyEncryptedV4 object type")
+	}
+	if !reflect.DeepEqual(msg1.Payload.Serialize(), msg.Payload.Serialize()) {
+		t.Error("for Payload got", msg1.Payload.Serialize(), "expected",
+			msg.Payload.Serialize())
+	}
+	if !pow.Check(raw[MessageHeaderSize():], constants.POWDefaultExtraBytes,
+		constants.POWDefaultNonceTrialsPerByte) {
+		t.Error("nonce check failed")
+	}
+	// TODO try decrypting Pubkey and check if it corresponds to unencrypted
+	// key
+	// TODO generate foreign identity from public key and check if it's same
 }
 
 func TestMsgObject(t *testing.T) {

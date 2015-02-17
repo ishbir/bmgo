@@ -3,7 +3,6 @@ package types
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"io"
 )
@@ -48,7 +47,7 @@ func (i *Varint) DeserializeReader(b io.Reader) error {
 	var first [1]byte
 	n, err := io.ReadAtLeast(b, first[:], 1)
 	if n != 1 || err != nil {
-		return errors.New("error reading first byte")
+		return DeserializeFailedError("first byte")
 	}
 
 	switch int(first[0]) {
@@ -110,7 +109,7 @@ func (i *VarintList) DeserializeReader(b io.Reader) error {
 	var length Varint
 	err := length.DeserializeReader(b)
 	if err != nil {
-		return errors.New("failed to decode length of list: " + err.Error())
+		return DeserializeFailedError("length of list: " + err.Error())
 	}
 
 	*i = make(VarintList, uint64(length))
@@ -121,7 +120,7 @@ func (i *VarintList) DeserializeReader(b io.Reader) error {
 	for j = 0; j < uint64(length); j++ { // decode everything
 		err := x.DeserializeReader(b)
 		if err != nil {
-			return errors.New("failed to decode varint at pos " + fmt.Sprint(j) +
+			return DeserializeFailedError("varint at pos " + fmt.Sprint(j) +
 				": " + err.Error())
 		}
 		(*i)[j] = x

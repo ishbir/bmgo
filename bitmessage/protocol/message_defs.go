@@ -96,12 +96,11 @@ type ObjectMessage struct {
 	ObjectType  ObjectType
 	Version     types.Varint
 	Stream      types.Varint
-	Payload     Serializer
+	Payload     types.Serializer
 }
 
 // SignablePayload represents payload which can have a signature added to it.
 type SignablePayload interface {
-	Serializer
 	// SignatureSerialize gets the part of the payload that has to be appended
 	// to object message header for signing.
 	SignatureSerialize() []byte
@@ -122,7 +121,7 @@ type PublicKeysAddablePayload interface {
 type EncryptablePayload interface {
 	// Encrypt makes the payload encrypt itself for the target public key and
 	// return a transformed payload (the encrypted form of itself).
-	Encrypt(*elliptic.PublicKey) (Serializer, error)
+	Encrypt(*elliptic.PublicKey) (types.Serializer, error)
 }
 
 // TaggableEncryptedPayload represents encrypted payloads that have a tag.

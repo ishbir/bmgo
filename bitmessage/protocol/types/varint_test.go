@@ -72,7 +72,7 @@ func TestDeserializeVarint(t *testing.T) {
 	// Test for errors
 	for _, pair := range varintInvalidLengthTests {
 		err := v.DeserializeReader(bytes.NewReader(pair.byteValue))
-		if err, ok := err.(VarintMinimumSizeError); !ok {
+		if _, ok := err.(VarintMinimumSizeError); !ok {
 			t.Error("For", pair.byteValue,
 				"expected VarintMinimumSizeError",
 				"got error:", err.Error(),
@@ -81,9 +81,9 @@ func TestDeserializeVarint(t *testing.T) {
 	}
 
 	err := v.DeserializeReader(bytes.NewReader([]byte{}))
-	if err.Error() != "error reading first byte" {
+	if _, ok := err.(DeserializeFailedError); !ok {
 		t.Error(
-			"For empty byte slice, expected error: error reading first byte,",
+			"For empty byte slice, expected DeserializeFailedError,",
 			"got error:", err.Error(),
 		)
 	}

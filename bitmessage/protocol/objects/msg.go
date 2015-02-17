@@ -39,7 +39,7 @@ func (obj *MsgEncrypted) DeserializeReader(b io.Reader) error {
 	var err error
 	obj.EncryptedData, err = ioutil.ReadAll(b)
 	if err != nil {
-		return types.DeserializeFailedError("encryptedData")
+		return types.DeserializeFailedError("EncryptedData")
 	}
 	return nil
 }
@@ -117,33 +117,33 @@ func (obj *MsgUnencryptedV2) Serialize() []byte {
 func (obj *MsgUnencryptedV2) DeserializeReader(b io.Reader) error {
 	err := obj.AddressVersion.DeserializeReader(b)
 	if err != nil {
-		return types.DeserializeFailedError("address version")
+		return types.DeserializeFailedError("AddressVersion")
 	}
 	err = obj.Stream.DeserializeReader(b)
 	if err != nil {
-		return types.DeserializeFailedError("address stream")
+		return types.DeserializeFailedError("Stream")
 	}
 	err = binary.Read(b, binary.BigEndian, &obj.Behaviour)
 	if err != nil {
-		return types.DeserializeFailedError("behaviour")
+		return types.DeserializeFailedError("Behaviour")
 	}
 	err = binary.Read(b, binary.BigEndian, &obj.PubSigningKey)
 	if err != nil {
-		return types.DeserializeFailedError("pubSigningKey")
+		return types.DeserializeFailedError("PubSigningKey")
 	}
 	err = binary.Read(b, binary.BigEndian, &obj.PubEncryptionKey)
 	if err != nil {
-		return types.DeserializeFailedError("pubEncryptionKey")
+		return types.DeserializeFailedError("PubEncryptionKey")
 	}
 	err = binary.Read(b, binary.BigEndian, &obj.DestinationRipe)
 	if err != nil {
-		return types.DeserializeFailedError("destination ripe")
+		return types.DeserializeFailedError("DestinationRipe")
 	}
 
 	var encoding types.Varint
 	err = encoding.DeserializeReader(b)
 	if err != nil {
-		return types.DeserializeFailedError("encoding")
+		return types.DeserializeFailedError("Encoding")
 	}
 	obj.Encoding = EncodingType(encoding)
 
@@ -156,7 +156,7 @@ func (obj *MsgUnencryptedV2) DeserializeReader(b io.Reader) error {
 	obj.Message = make([]byte, msgLen)
 	err = binary.Read(b, binary.BigEndian, obj.Message)
 	if err != nil {
-		return types.DeserializeFailedError("message")
+		return types.DeserializeFailedError("Message")
 	}
 
 	err = ackLen.DeserializeReader(b)
@@ -166,7 +166,7 @@ func (obj *MsgUnencryptedV2) DeserializeReader(b io.Reader) error {
 	obj.AckData = make([]byte, ackLen)
 	err = binary.Read(b, binary.BigEndian, obj.AckData)
 	if err != nil {
-		return types.DeserializeFailedError("ackdata")
+		return types.DeserializeFailedError("Ackdata")
 	}
 
 	err = sigLen.DeserializeReader(b)
@@ -176,7 +176,7 @@ func (obj *MsgUnencryptedV2) DeserializeReader(b io.Reader) error {
 	obj.Signature = make([]byte, sigLen)
 	err = binary.Read(b, binary.BigEndian, obj.Signature)
 	if err != nil {
-		return types.DeserializeFailedError("signature")
+		return types.DeserializeFailedError("Signature")
 	}
 
 	return nil
@@ -191,12 +191,12 @@ func (obj *MsgUnencryptedV2) SetSigningAndEncryptionKeys(sk, ek []byte) {
 	copy(obj.PubEncryptionKey[:], ek)
 }
 
-func (obj *MsgUnencryptedV2) Encrypt(key *elliptic.PublicKey) (*MsgEncrypted,
+func (obj *MsgUnencryptedV2) Encrypt(key *elliptic.PublicKey) (types.Serializer,
 	error) {
 	return encryptMessage(obj.Serialize(), key)
 }
 
-func encryptMessage(payload []byte, key *elliptic.PublicKey) (*MsgEncrypted,
+func encryptMessage(payload []byte, key *elliptic.PublicKey) (types.Serializer,
 	error) {
 	encData, err := elliptic.RandomPrivateKeyEncrypt(payload, key)
 	if err != nil {
@@ -296,41 +296,41 @@ func (obj *MsgUnencryptedV3) Serialize() []byte {
 func (obj *MsgUnencryptedV3) DeserializeReader(b io.Reader) error {
 	err := obj.AddressVersion.DeserializeReader(b)
 	if err != nil {
-		return types.DeserializeFailedError("address version")
+		return types.DeserializeFailedError("AddressVersion")
 	}
 	err = obj.Stream.DeserializeReader(b)
 	if err != nil {
-		return types.DeserializeFailedError("address stream")
+		return types.DeserializeFailedError("Stream")
 	}
 	err = binary.Read(b, binary.BigEndian, &obj.Behaviour)
 	if err != nil {
-		return types.DeserializeFailedError("behaviour")
+		return types.DeserializeFailedError("Behaviour")
 	}
 	err = binary.Read(b, binary.BigEndian, &obj.PubSigningKey)
 	if err != nil {
-		return types.DeserializeFailedError("pubSigningKey")
+		return types.DeserializeFailedError("PubSigningKey")
 	}
 	err = binary.Read(b, binary.BigEndian, &obj.PubEncryptionKey)
 	if err != nil {
-		return types.DeserializeFailedError("pubEncryptionKey")
+		return types.DeserializeFailedError("PubEncryptionKey")
 	}
 	err = obj.NonceTrialsPerByte.DeserializeReader(b)
 	if err != nil {
-		return types.DeserializeFailedError("nonceTrialsPerByte")
+		return types.DeserializeFailedError("NonceTrialsPerByte")
 	}
 	err = obj.ExtraBytes.DeserializeReader(b)
 	if err != nil {
-		return types.DeserializeFailedError("extraBytes")
+		return types.DeserializeFailedError("ExtraBytes")
 	}
 	err = binary.Read(b, binary.BigEndian, &obj.DestinationRipe)
 	if err != nil {
-		return types.DeserializeFailedError("destination ripe")
+		return types.DeserializeFailedError("DestinationRipe")
 	}
 
 	var encoding types.Varint
 	err = encoding.DeserializeReader(b)
 	if err != nil {
-		return types.DeserializeFailedError("encoding")
+		return types.DeserializeFailedError("Encoding")
 	}
 	obj.Encoding = EncodingType(encoding)
 
@@ -343,7 +343,7 @@ func (obj *MsgUnencryptedV3) DeserializeReader(b io.Reader) error {
 	obj.Message = make([]byte, msgLen)
 	err = binary.Read(b, binary.BigEndian, obj.Message)
 	if err != nil {
-		return types.DeserializeFailedError("message")
+		return types.DeserializeFailedError("Message")
 	}
 
 	err = ackLen.DeserializeReader(b)
@@ -353,7 +353,7 @@ func (obj *MsgUnencryptedV3) DeserializeReader(b io.Reader) error {
 	obj.AckData = make([]byte, ackLen)
 	err = binary.Read(b, binary.BigEndian, obj.AckData)
 	if err != nil {
-		return types.DeserializeFailedError("ackdata")
+		return types.DeserializeFailedError("Ackdata")
 	}
 
 	err = sigLen.DeserializeReader(b)
@@ -363,7 +363,7 @@ func (obj *MsgUnencryptedV3) DeserializeReader(b io.Reader) error {
 	obj.Signature = make([]byte, sigLen)
 	err = binary.Read(b, binary.BigEndian, obj.Signature)
 	if err != nil {
-		return types.DeserializeFailedError("signature")
+		return types.DeserializeFailedError("Signature")
 	}
 
 	return nil
@@ -378,7 +378,7 @@ func (obj *MsgUnencryptedV3) SetSigningAndEncryptionKeys(sk, ek []byte) {
 	copy(obj.PubEncryptionKey[:], ek)
 }
 
-func (obj *MsgUnencryptedV3) Encrypt(key *elliptic.PublicKey) (*MsgEncrypted,
+func (obj *MsgUnencryptedV3) Encrypt(key *elliptic.PublicKey) (types.Serializer,
 	error) {
 	return encryptMessage(obj.Serialize(), key)
 }

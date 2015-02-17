@@ -96,18 +96,18 @@ func DecodeAddress(address string) (*Address, error) {
 
 	err = addr.Version.DeserializeReader(buf) // get the version
 	if err != nil {
-		return nil, types.DeserializeFailedError("version: " + err.Error())
+		return nil, types.DeserializeFailedError("Version: " + err.Error())
 	}
 
 	err = addr.Stream.DeserializeReader(buf)
 	if err != nil {
-		return nil, types.DeserializeFailedError("stream: " + err.Error())
+		return nil, types.DeserializeFailedError("Stream: " + err.Error())
 	}
 
 	ripe := make([]byte, buf.Len()-4) // exclude bytes already read and checksum
 	n, err := buf.Read(ripe)
 	if n != len(ripe) || err != nil {
-		return nil, types.DeserializeFailedError("ripe: " + err.Error())
+		return nil, types.DeserializeFailedError("Ripe: " + err.Error())
 	}
 
 	switch addr.Version {

@@ -2,7 +2,6 @@ package types
 
 import (
 	"bytes"
-	"errors"
 	"io"
 )
 
@@ -22,7 +21,7 @@ func (str *Varstring) DeserializeReader(buf io.Reader) error {
 	var length Varint
 	err := length.DeserializeReader(buf)
 	if err != nil {
-		return errors.New("length of varstring: " + err.Error())
+		return DeserializeFailedError("length: " + err.Error())
 	}
 
 	temp := make([]byte, uint64(length))

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"io"
+	"io/ioutil"
 
 	"github.com/ishbir/elliptic"
 
@@ -37,15 +38,15 @@ func (obj *PubkeyV2) Serialize() []byte {
 func (obj *PubkeyV2) DeserializeReader(b io.Reader) error {
 	err := binary.Read(b, binary.BigEndian, &obj.Behaviour)
 	if err != nil {
-		return types.DeserializeFailedError("behaviour")
+		return types.DeserializeFailedError("Behaviour")
 	}
 	err = binary.Read(b, binary.BigEndian, obj.PubSigningKey[:])
 	if err != nil {
-		return types.DeserializeFailedError("pubSigningKey")
+		return types.DeserializeFailedError("PubSigningKey")
 	}
 	err = binary.Read(b, binary.BigEndian, obj.PubEncryptionKey[:])
 	if err != nil {
-		return types.DeserializeFailedError("pubEncryptionKey")
+		return types.DeserializeFailedError("PubEncryptionKey")
 	}
 
 	return nil
@@ -115,23 +116,23 @@ func (obj *PubkeyV3) Serialize() []byte {
 func (obj *PubkeyV3) DeserializeReader(b io.Reader) error {
 	err := binary.Read(b, binary.BigEndian, &obj.Behaviour)
 	if err != nil {
-		return types.DeserializeFailedError("behaviour")
+		return types.DeserializeFailedError("Behaviour")
 	}
 	err = binary.Read(b, binary.BigEndian, obj.PubSigningKey[:])
 	if err != nil {
-		return types.DeserializeFailedError("pubSigningKey")
+		return types.DeserializeFailedError("PubSigningKey")
 	}
 	err = binary.Read(b, binary.BigEndian, obj.PubEncryptionKey[:])
 	if err != nil {
-		return types.DeserializeFailedError("pubEncryptionKey")
+		return types.DeserializeFailedError("PubEncryptionKey")
 	}
 	err = obj.NonceTrialsPerByte.DeserializeReader(b)
 	if err != nil {
-		return types.DeserializeFailedError("nonceTrialsPerByte: " + err.Error())
+		return types.DeserializeFailedError("NonceTrialsPerByte: " + err.Error())
 	}
 	err = obj.ExtraBytes.DeserializeReader(b)
 	if err != nil {
-		return types.DeserializeFailedError("extraBytes: " + err.Error())
+		return types.DeserializeFailedError("ExtraBytes: " + err.Error())
 	}
 	var sigLength types.Varint
 	err = sigLength.DeserializeReader(b)
@@ -141,7 +142,7 @@ func (obj *PubkeyV3) DeserializeReader(b io.Reader) error {
 	obj.Signature = make([]byte, int(sigLength))
 	err = binary.Read(b, binary.BigEndian, obj.Signature)
 	if err != nil {
-		return types.DeserializeFailedError("signature")
+		return types.DeserializeFailedError("Signature")
 	}
 
 	return nil
@@ -181,13 +182,12 @@ func (obj *PubkeyEncryptedV4) Serialize() []byte {
 func (obj *PubkeyEncryptedV4) DeserializeReader(b io.Reader) error {
 	err := binary.Read(b, binary.BigEndian, obj.Tag[:])
 	if err != nil {
-		return types.DeserializeFailedError("tag")
+		return types.DeserializeFailedError("Tag")
 	}
-	err = binary.Read(b, binary.BigEndian, obj.EncryptedData)
+	obj.EncryptedData, err = ioutil.ReadAll(b)
 	if err != nil {
-		return types.DeserializeFailedError("encryptedData")
+		return types.DeserializeFailedError("EncryptedData")
 	}
-
 	return nil
 }
 
@@ -204,7 +204,7 @@ type PubkeyUnencryptedV4 struct {
 }
 
 func (obj *PubkeyUnencryptedV4) Encrypt(key *elliptic.PublicKey) (
-	*PubkeyEncryptedV4, error) {
+	types.Serializer, error) {
 	encData, err := elliptic.RandomPrivateKeyEncrypt(obj.Serialize(), key)
 	if err != nil {
 		return nil, err

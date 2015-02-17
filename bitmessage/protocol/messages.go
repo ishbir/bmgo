@@ -231,7 +231,7 @@ func (msg *AddrMessage) DeserializeReader(b io.Reader) error {
 
 	err := count.DeserializeReader(b)
 	if err != nil {
-		return errors.New("failed to decode number of addresses: " + err.Error())
+		return types.DeserializeFailedError("number of addresses: " + err.Error())
 	}
 
 	msg.Addresses = make([]NetworkAddress, uint64(count)) // init output
@@ -240,7 +240,7 @@ func (msg *AddrMessage) DeserializeReader(b io.Reader) error {
 	for i = 0; i < uint64(count); i++ { // set them up
 		err = msg.Addresses[i].DeserializeReader(b)
 		if err != nil {
-			return errors.New("error decoding addr at pos " +
+			return types.DeserializeFailedError("addr at pos " +
 				fmt.Sprint(i) + ": " + err.Error())
 		}
 	}
@@ -263,7 +263,7 @@ func deserializeInvVector(b io.Reader) ([]InvVector, error) {
 
 	err := count.DeserializeReader(b)
 	if err != nil {
-		return nil, errors.New("failed to decode number of inv items: " + err.Error())
+		return nil, types.DeserializeFailedError("number of inv items: " + err.Error())
 	}
 
 	items := make([]InvVector, uint64(count)) // init output
@@ -324,16 +324,16 @@ func (msg *ObjectMessage) Serialize() []byte {
 func (msg *ObjectMessage) DeserializeReader(b io.Reader) error {
 	err := binary.Read(b, binary.BigEndian, &msg.Nonce)
 	if err != nil {
-		return types.DeserializeFailedError("nonce")
+		return types.DeserializeFailedError("nonce: " + err.Error())
 	}
 	err = binary.Read(b, binary.BigEndian, &msg.expiresTime)
 	if err != nil {
-		return types.DeserializeFailedError("expiresTime")
+		return types.DeserializeFailedError("expiresTime: " + err.Error())
 	}
 	var objType uint32
 	err = binary.Read(b, binary.BigEndian, &objType)
 	if err != nil {
-		return types.DeserializeFailedError("objectType")
+		return types.DeserializeFailedError("objectType: " + err.Error())
 	}
 	msg.ObjectType = ObjectType(objType)
 	err = msg.Version.DeserializeReader(b)
@@ -381,7 +381,7 @@ func (msg *ObjectMessage) Preserialize(id *identity.Own,
 		b.Write(signer.SignatureSerialize())
 		signature, err := id.SigningKey.Sign(b.Bytes())
 		if err != nil {
-			errors.New("signing failed: " + err.Error())
+			return errors.New("signing failed: " + err.Error())
 		}
 		signer.SetSignature(signature)
 	}
@@ -408,6 +408,7 @@ func (msg *ObjectMessage) Preserialize(id *identity.Own,
 		target = new(identity.Foreign)
 		target.EncryptionKey = &privKey.PublicKey
 		tag = hash[32:] // set the tag
+
 	// set encryption key for v4 broadcasts
 	case *objects.BroadcastUnencryptedV4AddressV2,
 		*objects.BroadcastUnencryptedV4AddressV3:
@@ -425,6 +426,7 @@ func (msg *ObjectMessage) Preserialize(id *identity.Own,
 		}
 		target = new(identity.Foreign)
 		target.EncryptionKey = &privKey.PublicKey
+
 	// set network default POW parameters for objects that are meant to not be
 	// destination client specific
 	case *objects.PubkeyV2, *objects.PubkeyV3,

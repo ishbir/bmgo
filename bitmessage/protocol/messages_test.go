@@ -411,10 +411,45 @@ func TestPubkeyV2Object(t *testing.T) {
 		constants.POWDefaultNonceTrialsPerByte) {
 		t.Error("nonce check failed")
 	}
+
+	// TODO generate foreign identity from public key and check if it's same
 }
 
 func TestPubkeyV3Object(t *testing.T) {
+	msg := ObjectMessage{
+		TTL:        time.Hour * 24 * 10,
+		ObjectType: PubkeyObject,
+		Version:    3,
+		Stream:     1,
+		Payload: &objects.PubkeyV3{
+			Behaviour: (0x01 << 31), // we need ack
+		},
+	}
+	err := msg.Preserialize(ownId1, nil) // set our keys
+	if err != nil {
+		t.Fatal("preserialize error:", err.Error())
+	}
 
+	raw := msg.Serialize()
+	msg1 := new(ObjectMessage)
+	DeserializeTo(msg1, raw[MessageHeaderSize():])
+
+	if msg1.ObjectType != PubkeyObject {
+		t.Error("for ObjectType got", msg1.ObjectType, "expected PubkeyObject")
+	}
+	if _, ok := msg1.Payload.(*objects.PubkeyV3); !ok {
+		t.Error("for Payload, did not get GetpubkeyV3 object type")
+	}
+	if !reflect.DeepEqual(msg1.Payload.Serialize(), msg.Payload.Serialize()) {
+		t.Error("for Payload got", msg1.Payload.Serialize(), "expected",
+			msg.Payload.Serialize())
+	}
+	if !pow.Check(raw[MessageHeaderSize():], constants.POWDefaultExtraBytes,
+		constants.POWDefaultNonceTrialsPerByte) {
+		t.Error("nonce check failed")
+	}
+
+	// TODO generate foreign identity from public key and check if it's same
 }
 
 func TestPubkeyV4Object(t *testing.T) {

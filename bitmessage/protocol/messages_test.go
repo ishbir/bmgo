@@ -461,12 +461,12 @@ func TestPubkeyV3Object(t *testing.T) {
 
 	p1 := msg.Payload.(*objects.PubkeyV3)
 
-	// check if public encryption keys was
+	// check if public encryption key was set
 	if bytes.Equal(p1.PubEncryptionKey[:],
 		bytes.Repeat([]byte{0x00}, 64)) {
 		t.Error("public encryption key is empty")
 	}
-	// check if signing keys was set
+	// check if signing key was set
 	if bytes.Equal(p1.PubSigningKey[:],
 		bytes.Repeat([]byte{0x00}, 64)) {
 		t.Error("public signing key is empty")

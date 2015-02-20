@@ -26,3 +26,6 @@ gui
 ---
 The GUI meant for use by the average user, which connects the bitmessage and
 middleware packages through a user friendly interface.
+
+The software is EXTREMELY EXPERIMENTAL and subsequent commits may break the API.
+Use (if it works) with caution.

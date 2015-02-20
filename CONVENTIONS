@@ -9,3 +9,6 @@ assigned and usually represents lengths of respective fields.
 reasonable correctness. Extensive testing of POW is done in its own package.
 * If objects that have signatures do not have valid signatures, they're going to
 be represented as corrupt objects and discarded.
+* The aim isn't 100% testing code coverage but coverage of general/most used
+cases. This can result in failures but it's very time consuming to write all
+tests. If someone wants to help with this, please step in.

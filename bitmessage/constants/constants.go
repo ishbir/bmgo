@@ -2,11 +2,21 @@
 // functioning.
 package constants
 
-import "time"
+import (
+	"time"
+
+	"github.com/ishbir/elliptic"
+)
 
 const (
 	// The first 4 byte value of every message exchanged wiht a Bitmessage node.
+	// DO NOT CHANGE unless you want to create your own alternative Bitmessage
+	// network.
 	MessageMagic uint32 = 0xE9BEB4D9
+	// Curve used for encryption/decryption/signing. DO NOT CHANGE unless you
+	// want to create your own alternative Bitcoin network. Changing this WILL
+	// also break code that depends on uncompressed key length being 64 bytes.
+	Curve = elliptic.Secp256k1
 	// POW Constants:
 	//
 	// If changed, these values will cause particularly unexpected behavior: You

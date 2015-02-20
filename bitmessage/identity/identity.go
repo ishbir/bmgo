@@ -16,8 +16,6 @@ import (
 	"github.com/ishbir/bmgo/bitmessage/protocol/types"
 )
 
-var curve = elliptic.Secp256k1
-
 type Base struct {
 	Address
 	NonceTrialsPerByte types.Varint
@@ -162,7 +160,7 @@ func NewRandom(initialZeros int) (*Own, error) {
 	var err error
 
 	// Create signing keys
-	id.SigningKey, err = elliptic.GeneratePrivateKey(curve)
+	id.SigningKey, err = elliptic.GeneratePrivateKey(constants.Curve)
 	if err != nil {
 		return nil, errors.New("creating private signing key failed: " + err.Error())
 	}
@@ -171,7 +169,7 @@ func NewRandom(initialZeros int) (*Own, error) {
 	// Go through loop to encryption keys with required num. of zeros
 	for {
 		// Generate encryption keys
-		id.EncryptionKey, err = elliptic.GeneratePrivateKey(curve)
+		id.EncryptionKey, err = elliptic.GeneratePrivateKey(constants.Curve)
 		if err != nil { // Some unknown error
 			return nil, errors.New("creating private encryption key failed: " + err.Error())
 		}
@@ -214,7 +212,7 @@ func NewDeterministic(passphrase string, initialZeros uint64) (*Own, error) {
 			types.Varint(signingKeyNonce).Serialize()...)
 		sha.Reset()
 		sha.Write(temp)
-		id.SigningKey, err = elliptic.PrivateKeyFromRawBytes(curve,
+		id.SigningKey, err = elliptic.PrivateKeyFromRawBytes(constants.Curve,
 			sha.Sum(nil)[:32])
 		if err != nil {
 			return nil, errors.New("private key generation failed: " + err.Error())
@@ -225,7 +223,7 @@ func NewDeterministic(passphrase string, initialZeros uint64) (*Own, error) {
 			types.Varint(encryptionKeyNonce).Serialize()...)
 		sha.Reset()
 		sha.Write(temp)
-		id.EncryptionKey, err = elliptic.PrivateKeyFromRawBytes(curve,
+		id.EncryptionKey, err = elliptic.PrivateKeyFromRawBytes(constants.Curve,
 			sha.Sum(nil)[:32])
 		if err != nil {
 			return nil, errors.New("private key generation failed: " + err.Error())
@@ -335,7 +333,7 @@ func wifToPrivkey(wifstr string) (prikey *elliptic.PrivateKey, err error) {
 	}
 
 	// All good, so create private key
-	prikey, err = elliptic.PrivateKeyFromRawBytes(curve, prikey_bytes)
+	prikey, err = elliptic.PrivateKeyFromRawBytes(constants.Curve, prikey_bytes)
 	if err != nil {
 		err = errors.New("creating private key from bytes failed: " + err.Error())
 		return

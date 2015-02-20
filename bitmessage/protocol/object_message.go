@@ -246,16 +246,15 @@ func (msg *ObjectMessage) setPayloadType() {
 // GenerateForeignIdentity generates an identity.Foreign object based on the
 // type of public key that we have (if it is a public key).
 func (msg *ObjectMessage) GenerateForeignIdentity() (*identity.Foreign, error) {
-	var curve = elliptic.Secp256k1
 	id := new(identity.Foreign)
 
 	switch payload := msg.Payload.(type) {
 	case *objects.PubkeyV2:
 		// errors here can be safely ignored (refer to elliptic.go for reason)
 		id.EncryptionKey, _ = elliptic.PublicKeyFromUncompressedBytes(
-			curve, append([]byte{0x04}, payload.PubEncryptionKey[:]...))
+			constants.Curve, append([]byte{0x04}, payload.PubEncryptionKey[:]...))
 		id.SigningKey, _ = elliptic.PublicKeyFromUncompressedBytes(
-			curve, append([]byte{0x04}, payload.PubSigningKey[:]...))
+			constants.Curve, append([]byte{0x04}, payload.PubSigningKey[:]...))
 		id.CreateAddress(2, msg.Stream)
 		id.SetDefaultPOWParams()
 		return id, nil
@@ -263,9 +262,9 @@ func (msg *ObjectMessage) GenerateForeignIdentity() (*identity.Foreign, error) {
 	case *objects.PubkeyV3:
 		// errors here can be safely ignored
 		id.EncryptionKey, _ = elliptic.PublicKeyFromUncompressedBytes(
-			curve, append([]byte{0x04}, payload.PubEncryptionKey[:]...))
+			constants.Curve, append([]byte{0x04}, payload.PubEncryptionKey[:]...))
 		id.SigningKey, _ = elliptic.PublicKeyFromUncompressedBytes(
-			curve, append([]byte{0x04}, payload.PubSigningKey[:]...))
+			constants.Curve, append([]byte{0x04}, payload.PubSigningKey[:]...))
 		id.CreateAddress(3, msg.Stream)
 		id.NonceTrialsPerByte = payload.NonceTrialsPerByte
 		id.ExtraBytes = payload.ExtraBytes
@@ -274,10 +273,10 @@ func (msg *ObjectMessage) GenerateForeignIdentity() (*identity.Foreign, error) {
 	case *objects.PubkeyUnencryptedV4:
 		// errors here can be safely ignored
 		id.EncryptionKey, _ = elliptic.PublicKeyFromUncompressedBytes(
-			curve, append([]byte{0x04}, payload.PubEncryptionKey[:]...))
+			constants.Curve, append([]byte{0x04}, payload.PubEncryptionKey[:]...))
 		id.SigningKey, _ = elliptic.PublicKeyFromUncompressedBytes(
-			curve, append([]byte{0x04}, payload.PubSigningKey[:]...))
-		id.CreateAddress(3, msg.Stream)
+			constants.Curve, append([]byte{0x04}, payload.PubSigningKey[:]...))
+		id.CreateAddress(4, msg.Stream)
 		id.NonceTrialsPerByte = payload.NonceTrialsPerByte
 		id.ExtraBytes = payload.ExtraBytes
 		return id, nil

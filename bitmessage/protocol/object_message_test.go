@@ -286,7 +286,6 @@ func TestPubkeyV4Object(t *testing.T) {
 			},
 		},
 	}
-
 	if _, ok := msg.Payload.(EncryptablePayload); !ok {
 		t.Fatal("payload not encrypted")
 	}
@@ -295,7 +294,6 @@ func TestPubkeyV4Object(t *testing.T) {
 	if err != nil {
 		t.Fatal("preserialize error:", err.Error())
 	}
-
 	// check if Preserialize encrypted successfully
 	if _, ok := msg.Payload.(*objects.PubkeyEncryptedV4); !ok {
 		t.Error("for Payload, did not get PubkeyEncryptedV4 object type")

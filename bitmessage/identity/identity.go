@@ -18,15 +18,19 @@ import (
 
 var curve = elliptic.Secp256k1
 
+type Base struct {
+	Address
+	NonceTrialsPerByte types.Varint
+	ExtraBytes         types.Varint
+}
+
 // Own contains the identity of the user, which includes public and private
 // encryption and signing keys, as well as the address that contains information
 // about stream number and address version.
 type Own struct {
-	Address
-	SigningKey         *elliptic.PrivateKey
-	EncryptionKey      *elliptic.PrivateKey
-	NonceTrialsPerByte types.Varint
-	ExtraBytes         types.Varint
+	Base
+	SigningKey    *elliptic.PrivateKey
+	EncryptionKey *elliptic.PrivateKey
 }
 
 // Foreign contains the identity of the remote user, which includes the public
@@ -34,22 +38,18 @@ type Own struct {
 // about stream number and address version and information determining the POW
 // accepted by the identity.
 type Foreign struct {
-	Address
-	SigningKey         *elliptic.PublicKey
-	EncryptionKey      *elliptic.PublicKey
-	NonceTrialsPerByte types.Varint
-	ExtraBytes         types.Varint
+	Base
+	SigningKey    *elliptic.PublicKey
+	EncryptionKey *elliptic.PublicKey
 }
 
 // ToForeign turns the Own identity object into Foreign identity object that can
 // then be used in broadcasts and wherever else is required.
 func (id *Own) ToForeign() *Foreign {
 	return &Foreign{
-		Address:            id.Address,
-		SigningKey:         &id.SigningKey.PublicKey,
-		EncryptionKey:      &id.EncryptionKey.PublicKey,
-		NonceTrialsPerByte: id.NonceTrialsPerByte,
-		ExtraBytes:         id.ExtraBytes,
+		Base:          id.Base,
+		SigningKey:    &id.SigningKey.PublicKey,
+		EncryptionKey: &id.EncryptionKey.PublicKey,
 	}
 }
 
@@ -75,11 +75,13 @@ func Import(address, signingKeyWif, encryptionKeyWif string) (*Own, error) {
 	}
 
 	return &Own{
-		SigningKey:         privSigningKey,
-		EncryptionKey:      privEncryptionKey,
-		Address:            *addr,
-		NonceTrialsPerByte: constants.POWDefaultNonceTrialsPerByte,
-		ExtraBytes:         constants.POWDefaultExtraBytes,
+		SigningKey:    privSigningKey,
+		EncryptionKey: privEncryptionKey,
+		Base: Base{
+			Address:            *addr,
+			NonceTrialsPerByte: constants.POWDefaultNonceTrialsPerByte,
+			ExtraBytes:         constants.POWDefaultExtraBytes,
+		},
 	}, nil
 }
 
@@ -101,22 +103,49 @@ func (id *Own) Export() (address, signingKeyWif, encryptionKeyWif string,
 
 // CreateAddress populates the Address object within the identity based on the
 // provided version and stream values and also generates the ripe.
+func (id *Foreign) CreateAddress(version, stream types.Varint) {
+	id.Address.Version = version
+	id.Address.Stream = stream
+	copy(id.Address.Ripe[:], id.hash())
+}
+
+// CreateAddress populates the Address object within the identity based on the
+// provided version and stream values and also generates the ripe.
 func (id *Own) CreateAddress(version, stream types.Varint) {
 	id.Address.Version = version
 	id.Address.Stream = stream
 	copy(id.Address.Ripe[:], id.hash())
 }
 
-// hash returns the ripemd160 hash used in the address
-func (id *Own) hash() []byte {
+// SetDefaultPOWParams sets values of ExtraBytes and NonceTrialsPerByte based
+// on hard-coded values in constants.go.
+func (id *Base) SetDefaultPOWParams() {
+	id.ExtraBytes = constants.POWDefaultExtraBytes
+	id.NonceTrialsPerByte = constants.POWDefaultNonceTrialsPerByte
+}
+
+// hash_helper exists for delegating the task of hash calculation
+func hash_helper(signingKey []byte, encryptionKey []byte) []byte {
 	sha := sha512.New()
 	ripemd := ripemd160.New()
 
-	sha.Write(id.SigningKey.PublicKey.SerializeUncompressed())
-	sha.Write(id.EncryptionKey.PublicKey.SerializeUncompressed())
+	sha.Write(signingKey)
+	sha.Write(encryptionKey)
 
 	ripemd.Write(sha.Sum(nil)) // take ripemd160 of required elements
 	return ripemd.Sum(nil)     // Get the hash
+}
+
+// hash returns the ripemd160 hash used in the address
+func (id *Own) hash() []byte {
+	return hash_helper(id.SigningKey.PublicKey.SerializeUncompressed(),
+		id.EncryptionKey.PublicKey.SerializeUncompressed())
+}
+
+// hash returns the ripemd160 hash used in the address
+func (id *Foreign) hash() []byte {
+	return hash_helper(id.SigningKey.SerializeUncompressed(),
+		id.EncryptionKey.SerializeUncompressed())
 }
 
 // Create an identity based on a random number generator, with the required
@@ -153,8 +182,7 @@ func NewRandom(initialZeros int) (*Own, error) {
 		}
 	}
 
-	id.NonceTrialsPerByte = constants.POWDefaultNonceTrialsPerByte
-	id.ExtraBytes = constants.POWDefaultExtraBytes
+	id.Base.SetDefaultPOWParams()
 
 	return id, nil
 }
@@ -213,8 +241,7 @@ func NewDeterministic(passphrase string, initialZeros uint64) (*Own, error) {
 		}
 	}
 
-	id.NonceTrialsPerByte = constants.POWDefaultNonceTrialsPerByte
-	id.ExtraBytes = constants.POWDefaultExtraBytes
+	id.Base.SetDefaultPOWParams()
 
 	return id, nil
 }

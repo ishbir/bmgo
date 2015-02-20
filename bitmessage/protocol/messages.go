@@ -349,7 +349,6 @@ func (msg *ObjectMessage) DeserializeReader(b io.Reader) error {
 	if err != nil {
 		return types.DeserializeFailedError("payload" + err.Error())
 	}
-
 	return nil
 }
 
@@ -374,6 +373,14 @@ func (msg *ObjectMessage) Preserialize(id *identity.Own,
 	// set the expiration time based on TTL
 	msg.expiresTime = uint64(time.Now().Add(msg.TTL).Unix())
 
+	// Setting signing and encryption public keys
+	if keysetter, ok := msg.Payload.(PublicKeysAddablePayload); ok {
+		keysetter.SetSigningAndEncryptionKeys(
+			id.SigningKey.PublicKey.SerializeUncompressed()[1:], // exclude 0x04
+			id.EncryptionKey.PublicKey.SerializeUncompressed()[1:],
+		)
+	}
+
 	// Message signing
 	if signer, ok := msg.Payload.(SignablePayload); ok {
 		var b bytes.Buffer
@@ -385,13 +392,7 @@ func (msg *ObjectMessage) Preserialize(id *identity.Own,
 		}
 		signer.SetSignature(signature)
 	}
-	// Setting signing and encryption public keys
-	if keysetter, ok := msg.Payload.(PublicKeysAddablePayload); ok {
-		keysetter.SetSigningAndEncryptionKeys(
-			id.SigningKey.SerializeUncompressed()[1:], // exclude 0x04
-			id.EncryptionKey.SerializeUncompressed()[1:],
-		)
-	}
+
 	// tag, if it needs to be added
 	var tag []byte
 

@@ -7,3 +7,5 @@ the same field is assigned to the struct somehow. Lower case means that it isn't
 assigned and usually represents lengths of respective fields.
 * Tests that involve running POW have a short TTL so that they can be run with
 reasonable correctness. Extensive testing of POW is done in its own package.
+* If objects that have signatures do not have valid signatures, they're going to
+be represented as corrupt objects and discarded.

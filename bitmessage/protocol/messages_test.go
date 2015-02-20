@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ishbir/elliptic"
+
 	"github.com/ishbir/bmgo/bitmessage/constants"
 	"github.com/ishbir/bmgo/bitmessage/identity"
 	"github.com/ishbir/bmgo/bitmessage/pow"
@@ -296,7 +298,7 @@ func TestObjectMessage(t *testing.T) {
 	if _, ok := msg1.Payload.(*objects.Unrecognized); !ok {
 		t.Error("for Payload, did not get Unrecognized object type")
 	}
-	if !reflect.DeepEqual(msg1.Payload.Serialize(), msg.Payload.Serialize()) {
+	if !bytes.Equal(msg1.Payload.Serialize(), msg.Payload.Serialize()) {
 		t.Error("for Payload got", msg1.Payload.Serialize(), "expected",
 			msg.Payload.Serialize())
 	}
@@ -332,13 +334,17 @@ func TestGetpubkeyV4Object(t *testing.T) {
 	if _, ok := msg1.Payload.(*objects.GetpubkeyV4); !ok {
 		t.Error("for Payload, did not get GetpubkeyV4 object type")
 	}
-	if !reflect.DeepEqual(msg1.Payload.Serialize(), msg.Payload.Serialize()) {
+	if !bytes.Equal(msg1.Payload.Serialize(), msg.Payload.Serialize()) {
 		t.Error("for Payload got", msg1.Payload.Serialize(), "expected",
 			msg.Payload.Serialize())
 	}
 	if !pow.Check(raw[MessageHeaderSize():], constants.POWDefaultExtraBytes,
 		constants.POWDefaultNonceTrialsPerByte) {
 		t.Error("nonce check failed")
+	}
+	if tag := ownId2.Address.Tag(); !bytes.Equal(tag[:],
+		msg1.Payload.(*objects.GetpubkeyV4).Tag[:]) {
+		t.Error("tags didn't match")
 	}
 }
 
@@ -368,13 +374,17 @@ func TestGetpubkeyV3Object(t *testing.T) {
 	if _, ok := msg1.Payload.(*objects.GetpubkeyV3); !ok {
 		t.Error("for Payload, did not get GetpubkeyV3 object type")
 	}
-	if !reflect.DeepEqual(msg1.Payload.Serialize(), msg.Payload.Serialize()) {
+	if !bytes.Equal(msg1.Payload.Serialize(), msg.Payload.Serialize()) {
 		t.Error("for Payload got", msg1.Payload.Serialize(), "expected",
 			msg.Payload.Serialize())
 	}
 	if !pow.Check(raw[MessageHeaderSize():], constants.POWDefaultExtraBytes,
 		constants.POWDefaultNonceTrialsPerByte) {
 		t.Error("nonce check failed")
+	}
+	if !bytes.Equal(ownId2.Address.Ripe[:],
+		msg1.Payload.(*objects.GetpubkeyV3).Ripe[:]) {
+		t.Error("ripe didn't match")
 	}
 }
 
@@ -388,6 +398,7 @@ func TestPubkeyV2Object(t *testing.T) {
 			Behaviour: (0x01 << 31), // we need ack
 		},
 	}
+	ownId1.CreateAddress(2, 1)
 	err := msg.Preserialize(ownId1, nil) // set our keys
 	if err != nil {
 		t.Fatal("preserialize error:", err.Error())
@@ -403,7 +414,7 @@ func TestPubkeyV2Object(t *testing.T) {
 	if _, ok := msg1.Payload.(*objects.PubkeyV2); !ok {
 		t.Error("for Payload, did not get GetpubkeyV2 object type")
 	}
-	if !reflect.DeepEqual(msg1.Payload.Serialize(), msg.Payload.Serialize()) {
+	if !bytes.Equal(msg1.Payload.Serialize(), msg.Payload.Serialize()) {
 		t.Error("for Payload got", msg1.Payload.Serialize(), "expected",
 			msg.Payload.Serialize())
 	}
@@ -412,7 +423,24 @@ func TestPubkeyV2Object(t *testing.T) {
 		t.Error("nonce check failed")
 	}
 
-	// TODO generate foreign identity from public key and check if it's same
+	payload := msg1.Payload.(*objects.PubkeyV2)
+
+	// generate foreign identity from public key and check if it's same
+	genID := new(identity.Foreign)
+	// errors here can be safely ignored (refer to elliptic.go for reason)
+	genID.EncryptionKey, _ = elliptic.PublicKeyFromUncompressedBytes(
+		elliptic.Secp256k1, append([]byte{0x04}, payload.PubEncryptionKey[:]...))
+	genID.SigningKey, _ = elliptic.PublicKeyFromUncompressedBytes(
+		elliptic.Secp256k1, append([]byte{0x04}, payload.PubSigningKey[:]...))
+	genID.CreateAddress(2, 1)
+	genID.SetDefaultPOWParams()
+
+	ownAddr, _ := ownId1.Address.Encode()
+	genAddr, _ := genID.Address.Encode()
+
+	if ownAddr != genAddr {
+		t.Error("for generated addresses expected", ownAddr, "got", genAddr)
+	}
 }
 
 func TestPubkeyV3Object(t *testing.T) {
@@ -425,12 +453,24 @@ func TestPubkeyV3Object(t *testing.T) {
 			Behaviour: (0x01 << 31), // we need ack
 		},
 	}
+	ownId1.CreateAddress(3, 1)
 	err := msg.Preserialize(ownId1, nil) // set our keys
 	if err != nil {
 		t.Fatal("preserialize error:", err.Error())
 	}
 
-	// TODO check if signing was done
+	p1 := msg.Payload.(*objects.PubkeyV3)
+
+	// check if public encryption keys was
+	if bytes.Equal(p1.PubEncryptionKey[:],
+		bytes.Repeat([]byte{0x00}, 64)) {
+		t.Error("public encryption key is empty")
+	}
+	// check if signing keys was set
+	if bytes.Equal(p1.PubSigningKey[:],
+		bytes.Repeat([]byte{0x00}, 64)) {
+		t.Error("public signing key is empty")
+	}
 
 	raw := msg.Serialize()
 	msg1 := new(ObjectMessage)
@@ -442,7 +482,7 @@ func TestPubkeyV3Object(t *testing.T) {
 	if _, ok := msg1.Payload.(*objects.PubkeyV3); !ok {
 		t.Error("for Payload, did not get GetpubkeyV3 object type")
 	}
-	if !reflect.DeepEqual(msg1.Payload.Serialize(), msg.Payload.Serialize()) {
+	if !bytes.Equal(msg1.Payload.Serialize(), msg.Payload.Serialize()) {
 		t.Error("for Payload got", msg1.Payload.Serialize(), "expected",
 			msg.Payload.Serialize())
 	}
@@ -451,7 +491,38 @@ func TestPubkeyV3Object(t *testing.T) {
 		t.Error("nonce check failed")
 	}
 
-	// TODO generate foreign identity from public key and check if it's same
+	payload := msg1.Payload.(*objects.PubkeyV3)
+
+	// generate foreign identity from public key and check if it's same
+	genID := new(identity.Foreign)
+	// errors here can be safely ignored (refer to elliptic.go for reason)
+	genID.EncryptionKey, _ = elliptic.PublicKeyFromUncompressedBytes(
+		elliptic.Secp256k1, append([]byte{0x04}, payload.PubEncryptionKey[:]...))
+	genID.SigningKey, _ = elliptic.PublicKeyFromUncompressedBytes(
+		elliptic.Secp256k1, append([]byte{0x04}, payload.PubSigningKey[:]...))
+	genID.CreateAddress(3, 1)
+	// no need to check these because they're going to be same if two payloads
+	// are byte equal
+	genID.NonceTrialsPerByte = payload.NonceTrialsPerByte
+	genID.ExtraBytes = payload.ExtraBytes
+
+	ownAddr, _ := ownId1.Address.Encode()
+	genAddr, _ := genID.Address.Encode()
+
+	if ownAddr != genAddr {
+		t.Error("for generated addresses expected", ownAddr, "got", genAddr)
+	}
+
+	// check if the signature is valid
+	sigMatch, err := genID.SigningKey.VerifySignature(payload.Signature,
+		append(msg1.HeaderSerialize(), payload.SignatureSerialize()...))
+	if err != nil {
+		t.Error("signature verification failed:", err)
+	}
+	if !sigMatch {
+		t.Error("invalid signature")
+	}
+
 }
 
 func TestPubkeyV4Object(t *testing.T) {
@@ -481,8 +552,6 @@ func TestPubkeyV4Object(t *testing.T) {
 		t.Error("for Payload, did not get PubkeyEncryptedV4 object type")
 	}
 
-	// TODO check if signing was done
-
 	raw := msg.Serialize()
 	msg1 := new(ObjectMessage)
 	DeserializeTo(msg1, raw[MessageHeaderSize():])
@@ -493,7 +562,7 @@ func TestPubkeyV4Object(t *testing.T) {
 	if _, ok := msg1.Payload.(*objects.PubkeyEncryptedV4); !ok {
 		t.Error("for Payload, did not get PubkeyEncryptedV4 object type")
 	}
-	if !reflect.DeepEqual(msg1.Payload.Serialize(), msg.Payload.Serialize()) {
+	if !bytes.Equal(msg1.Payload.Serialize(), msg.Payload.Serialize()) {
 		t.Error("for Payload got", msg1.Payload.Serialize(), "expected",
 			msg.Payload.Serialize())
 	}
@@ -503,7 +572,9 @@ func TestPubkeyV4Object(t *testing.T) {
 	}
 	// TODO try decrypting Pubkey and check if it corresponds to unencrypted
 	// key
+	// TODO check if the signature of unencrypted message is valid
 	// TODO generate foreign identity from public key and check if it's same
+
 }
 
 func TestMsgObject(t *testing.T) {

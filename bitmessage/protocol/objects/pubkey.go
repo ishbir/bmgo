@@ -82,9 +82,6 @@ type PubkeyV3 struct {
 	// the network minimum so any lower values will be automatically raised to
 	// 1000.
 	ExtraBytes types.Varint
-	// Length of the signature
-	// SigLength types.Varint
-
 	// The ECDSA signature which, as of protocol v3, covers the object header
 	// starting with the time, appended with the data described in this table
 	// down to the extra_bytes.

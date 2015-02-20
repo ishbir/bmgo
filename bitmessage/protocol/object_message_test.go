@@ -5,8 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ishbir/elliptic"
-
 	"github.com/ishbir/bmgo/bitmessage/constants"
 	"github.com/ishbir/bmgo/bitmessage/identity"
 	"github.com/ishbir/bmgo/bitmessage/pow"
@@ -194,17 +192,8 @@ func TestPubkeyV2Object(t *testing.T) {
 		t.Error("nonce check failed")
 	}
 
-	payload := msg1.Payload.(*objects.PubkeyV2)
-
 	// generate foreign identity from public key and check if it's same
-	genID := new(identity.Foreign)
-	// errors here can be safely ignored (refer to elliptic.go for reason)
-	genID.EncryptionKey, _ = elliptic.PublicKeyFromUncompressedBytes(
-		elliptic.Secp256k1, append([]byte{0x04}, payload.PubEncryptionKey[:]...))
-	genID.SigningKey, _ = elliptic.PublicKeyFromUncompressedBytes(
-		elliptic.Secp256k1, append([]byte{0x04}, payload.PubSigningKey[:]...))
-	genID.CreateAddress(2, 1)
-	genID.SetDefaultPOWParams()
+	genID, _ := msg1.GenerateForeignIdentity()
 
 	ownAddr, _ := ownId1.Address.Encode()
 	genAddr, _ := genID.Address.Encode()
@@ -265,17 +254,7 @@ func TestPubkeyV3Object(t *testing.T) {
 	payload := msg1.Payload.(*objects.PubkeyV3)
 
 	// generate foreign identity from public key and check if it's same
-	genID := new(identity.Foreign)
-	// errors here can be safely ignored (refer to elliptic.go for reason)
-	genID.EncryptionKey, _ = elliptic.PublicKeyFromUncompressedBytes(
-		elliptic.Secp256k1, append([]byte{0x04}, payload.PubEncryptionKey[:]...))
-	genID.SigningKey, _ = elliptic.PublicKeyFromUncompressedBytes(
-		elliptic.Secp256k1, append([]byte{0x04}, payload.PubSigningKey[:]...))
-	genID.CreateAddress(3, 1)
-	// no need to check these because they're going to be same if two payloads
-	// are byte equal
-	genID.NonceTrialsPerByte = payload.NonceTrialsPerByte
-	genID.ExtraBytes = payload.ExtraBytes
+	genID, _ := msg1.GenerateForeignIdentity()
 
 	ownAddr, _ := ownId1.Address.Encode()
 	genAddr, _ := genID.Address.Encode()
@@ -293,7 +272,6 @@ func TestPubkeyV3Object(t *testing.T) {
 	if !sigMatch {
 		t.Error("invalid signature")
 	}
-
 }
 
 func TestPubkeyV4Object(t *testing.T) {
@@ -310,7 +288,7 @@ func TestPubkeyV4Object(t *testing.T) {
 	}
 
 	if _, ok := msg.Payload.(EncryptablePayload); !ok {
-		t.Fatal("cannot be encrypted")
+		t.Fatal("payload not encrypted")
 	}
 
 	err := msg.Preserialize(ownId1, nil) // set our keys
@@ -343,6 +321,10 @@ func TestPubkeyV4Object(t *testing.T) {
 	}
 	// TODO try decrypting Pubkey and check if it corresponds to unencrypted
 	// key
+
+	// test if decryption fails with wrong address
+	// test if decryption succeeds with right address
+
 	// TODO check if the signature of unencrypted message is valid
 	// TODO generate foreign identity from public key and check if it's same
 

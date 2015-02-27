@@ -124,6 +124,14 @@ type EncryptablePayload interface {
 	Encrypt(*elliptic.PublicKey) (types.Serializer, error)
 }
 
+// DecryptablePayload represents payloads that was originally in the encrypted
+// form while being transfered on network.
+type DecryptablePayload interface {
+	// Decrypt reverses the operation performed by Encrypt and transforms the
+	// payload back to its unencrypted form.
+	Decrypt(*elliptic.PrivateKey) (types.Serializer, error)
+}
+
 // TaggableEncryptedPayload represents encrypted payloads that have a tag.
 type TaggableEncryptedPayload interface {
 	// SetTag is used to set the tag of the encrypted payload.

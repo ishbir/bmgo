@@ -244,13 +244,6 @@ func NewDeterministic(passphrase string, initialZeros uint64) (*Own, error) {
 	return id, nil
 }
 
-/*
-Decrypt data intended for the receipient.
-*
-func (id *Identity) DecryptData(data []byte) []byte {
-
-}*/
-
 // Converts the private key to wallet import format compatible key.
 // Code taken from:
 // https://github.com/vsergeev/gimme-bitcoin-address/blob/master/gimme-bitcoin-address.go#L315

@@ -118,7 +118,7 @@ func (msg *ObjectMessage) Preserialize(id *identity.Own,
 	// set the encryption key and tag for v4 pubkeys and v5 broadcasts
 	case *objects.PubkeyUnencryptedV4, *objects.BroadcastUnencryptedV5:
 		hash := id.Address.CalcDoubleHash()
-		privKey, err := elliptic.PrivateKeyFromRawBytes(elliptic.Secp256k1,
+		privKey, err := elliptic.PrivateKeyFromRawBytes(constants.Curve,
 			hash[:32])
 		if err != nil {
 			return errors.New("failed to create private key from address: " +
@@ -137,7 +137,7 @@ func (msg *ObjectMessage) Preserialize(id *identity.Own,
 		sha.Write(id.Address.Ripe[:])
 		hash := sha.Sum(nil)
 
-		privKey, err := elliptic.PrivateKeyFromRawBytes(elliptic.Secp256k1,
+		privKey, err := elliptic.PrivateKeyFromRawBytes(constants.Curve,
 			hash[:32])
 		if err != nil {
 			return errors.New("failed to create private key from address: " +
@@ -243,6 +243,9 @@ func (msg *ObjectMessage) setPayloadType() {
 	}
 }
 
+var InvalidPayloadOperationError = errors.New("intended operation not defined" +
+	" for this payload")
+
 // GenerateForeignIdentity generates an identity.Foreign object based on the
 // type of public key that we have (if it is a public key).
 func (msg *ObjectMessage) GenerateForeignIdentity() (*identity.Foreign, error) {
@@ -282,5 +285,51 @@ func (msg *ObjectMessage) GenerateForeignIdentity() (*identity.Foreign, error) {
 		return id, nil
 	}
 
-	return nil, errors.New("payload not a pubkey")
+	return nil, InvalidPayloadOperationError
+}
+
+// TryDecrypt tries to decrypt the payload, which could be a message, broadcast,
+// or v4 pubkey, and returns whether it was successful or not, along with any
+// error. It changes the payload to its unencrypted form in the process. Error
+// is only returned if decryption didn't fail due to invalid key.
+func (msg *ObjectMessage) TryDecrypt(ownId *identity.Own,
+	address *identity.Address) (bool, error) {
+	encPayload, ok := msg.Payload.(DecryptablePayload)
+	if !ok { // make sure that payload is decryptable
+		return false, InvalidPayloadOperationError
+	}
+	var privKey *elliptic.PrivateKey
+	var err error
+	// generate decryption key if payload is pubkey (first 32 bytes of double
+	// hash of address)
+	if _, ok := msg.Payload.(*objects.PubkeyEncryptedV4); ok {
+		if address == nil {
+			// can't happen unless there's a bug
+			return false, errors.New("address not specified")
+		}
+
+		hash := address.CalcDoubleHash()
+		privKey, err = elliptic.PrivateKeyFromRawBytes(constants.Curve,
+			hash[:32])
+		if err != nil {
+			return false, errors.New("failed to create private key from address: " +
+				err.Error())
+		}
+	} else if ownId == nil {
+		// can't happen unless there's a bug
+		return false, errors.New("own ID not specified")
+	} else { // we can safely set encryption key
+		privKey = ownId.EncryptionKey
+	}
+
+	dencPayload, err := encPayload.Decrypt(privKey)
+
+	// invalid private key/corrupted data
+	if err == elliptic.InvalidMACError {
+		return false, nil
+	} else {
+		return false, err
+	}
+	msg.Payload = dencPayload
+	return true, nil
 }

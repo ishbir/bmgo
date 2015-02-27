@@ -1,6 +1,9 @@
 package types
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
 // Deserialization of an object failed. Used by Deserialize and DeserializeReader
 // methods of the NetworkSerializer interface.
@@ -11,11 +14,7 @@ func (e DeserializeFailedError) Error() string {
 }
 
 // Number encoded as varint does not use minimum bytes for representation.
-type VarintMinimumSizeError struct{}
-
-func (e VarintMinimumSizeError) Error() string {
-	return "varint not encoded with minimum size"
-}
+var VarintMinimumSizeError = errors.New("varint not encoded with minimum size")
 
 // Read failed because of not enough bytes.
 type NotEnoughBytesError int

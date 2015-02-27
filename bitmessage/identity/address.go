@@ -7,7 +7,6 @@ import (
 	"math/big"
 
 	"github.com/ishbir/base58"
-	"github.com/ishbir/bmgo/bitmessage/protocol/helpers"
 	"github.com/ishbir/bmgo/bitmessage/protocol/types"
 )
 
@@ -146,7 +145,13 @@ func (addr *Address) CalcDoubleHash() []byte {
 	b.Write(addr.Version.Serialize())
 	b.Write(addr.Stream.Serialize())
 	b.Write(addr.Ripe[:])
-	return helpers.CalculateDoubleSHA512Hash(b.Bytes())
+
+	sha := sha512.New()
+	sha.Write(b.Bytes())
+	temp := sha.Sum(nil)
+	sha.Reset()
+	sha.Write(temp)
+	return sha.Sum(nil)
 }
 
 func (addr *Address) Tag() [32]byte {

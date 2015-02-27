@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/ishbir/bmgo/bitmessage/constants"
-	"github.com/ishbir/bmgo/bitmessage/protocol/helpers"
 	"github.com/ishbir/bmgo/bitmessage/protocol/types"
 )
 
@@ -21,12 +20,13 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-// Return the size of the message header
+// MessageHeaderSize returns the size of the message header
 func MessageHeaderSize() int {
 	return 24 // unsafe.Sizeof is not reliable, because of alignment, padding etc.
 }
 
-// Create a message in the format required by the protocol specification.
+// CreateMessage create a message in the format required by the protocol
+// specification.
 // https://bitmessage.org/wiki/Protocol_specification#Message_structure
 func CreateMessage(command string, payload []byte) []byte {
 	if len(command) > 12 {
@@ -53,7 +53,7 @@ func CreateMessage(command string, payload []byte) []byte {
 	return b.Bytes()
 }
 
-// Unpack the header of the received message.
+// UnpackMessageHeader unpacks the header of the received message.
 func UnpackMessageHeader(raw []byte) (command string, payloadLength uint32,
 	checksum [4]byte, err error) {
 	b := bytes.NewReader(raw)
@@ -76,8 +76,8 @@ func UnpackMessageHeader(raw []byte) (command string, payloadLength uint32,
 	return
 }
 
-// Verify the checksum on the payload of a message to see if it has been
-// correctly received.
+// VerifyMessageChecksum verifies the checksum on the payload of a message to
+// see if it has been correctly received.
 func VerifyMessageChecksum(payload []byte, checksum [4]byte) bool {
 	t := sha512.Sum512(payload)
 	return bytes.Equal(checksum[:], t[:4]) // check for equality
@@ -297,7 +297,14 @@ func (msg *GetdataMessage) DeserializeReader(b io.Reader) error {
 
 // CalculateInvVector returns an InvVector for the corresponding message.
 func CalculateInvVector(message []byte) InvVector {
-	hash := helpers.CalculateDoubleSHA512Hash(message)
+	// calculate double sha512 hash
+	sha := sha512.New()
+	sha.Write(message)
+	temp := sha.Sum(nil)
+	sha.Reset()
+	sha.Write(temp)
+	hash := sha.Sum(nil)
+
 	var invVector InvVector
 	copy(invVector[:], hash[:32])
 	return invVector

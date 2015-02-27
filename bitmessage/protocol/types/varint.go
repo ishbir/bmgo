@@ -58,7 +58,7 @@ func (i *Varint) DeserializeReader(b io.Reader) error {
 			return NotEnoughBytesError(3) // no other reason for failure
 		}
 		if temp < 253 {
-			return VarintMinimumSizeError{}
+			return VarintMinimumSizeError
 		}
 		*i = Varint(temp)
 		return nil
@@ -70,7 +70,7 @@ func (i *Varint) DeserializeReader(b io.Reader) error {
 			return NotEnoughBytesError(5) // no other reason for failure
 		}
 		if temp < 65536 {
-			return VarintMinimumSizeError{}
+			return VarintMinimumSizeError
 		}
 		*i = Varint(temp)
 		return nil
@@ -82,7 +82,7 @@ func (i *Varint) DeserializeReader(b io.Reader) error {
 			return NotEnoughBytesError(9) // no other reason for failure
 		}
 		if temp < 4294967296 {
-			return VarintMinimumSizeError{}
+			return VarintMinimumSizeError
 		}
 		*i = Varint(temp)
 		return nil

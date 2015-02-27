@@ -45,7 +45,7 @@ func TestObjectMessage(t *testing.T) {
 	raw := msg.Serialize()
 
 	msg1 := new(ObjectMessage)
-	DeserializeTo(msg1, raw[MessageHeaderSize():])
+	types.DeserializeTo(msg1, raw[MessageHeaderSize():])
 
 	if msg1.Nonce != msg.Nonce {
 		t.Error("for Nonce got", msg1.Nonce, "expected", msg.Nonce)
@@ -95,7 +95,7 @@ func TestGetpubkeyV4Object(t *testing.T) {
 	raw := msg.Serialize()
 
 	msg1 := new(ObjectMessage)
-	DeserializeTo(msg1, raw[MessageHeaderSize():])
+	types.DeserializeTo(msg1, raw[MessageHeaderSize():])
 
 	if msg1.ObjectType != GetpubkeyObject {
 		t.Error("for ObjectType got", msg1.ObjectType, "expected GetpubkeyObject")
@@ -135,7 +135,7 @@ func TestGetpubkeyV3Object(t *testing.T) {
 	raw := msg.Serialize()
 
 	msg1 := new(ObjectMessage)
-	DeserializeTo(msg1, raw[MessageHeaderSize():])
+	types.DeserializeTo(msg1, raw[MessageHeaderSize():])
 
 	if msg1.ObjectType != GetpubkeyObject {
 		t.Error("for ObjectType got", msg1.ObjectType, "expected GetpubkeyObject")
@@ -175,7 +175,7 @@ func TestPubkeyV2Object(t *testing.T) {
 
 	raw := msg.Serialize()
 	msg1 := new(ObjectMessage)
-	DeserializeTo(msg1, raw[MessageHeaderSize():])
+	types.DeserializeTo(msg1, raw[MessageHeaderSize():])
 
 	if msg1.ObjectType != PubkeyObject {
 		t.Error("for ObjectType got", msg1.ObjectType, "expected PubkeyObject")
@@ -234,7 +234,7 @@ func TestPubkeyV3Object(t *testing.T) {
 
 	raw := msg.Serialize()
 	msg1 := new(ObjectMessage)
-	DeserializeTo(msg1, raw[MessageHeaderSize():])
+	types.DeserializeTo(msg1, raw[MessageHeaderSize():])
 
 	if msg1.ObjectType != PubkeyObject {
 		t.Error("for ObjectType got", msg1.ObjectType, "expected PubkeyObject")
@@ -287,7 +287,7 @@ func TestPubkeyV4Object(t *testing.T) {
 		},
 	}
 	if _, ok := msg.Payload.(EncryptablePayload); !ok {
-		t.Fatal("payload not encrypted")
+		t.Fatal("payload not encryptable")
 	}
 
 	err := msg.Preserialize(ownId1, nil) // set our keys
@@ -298,10 +298,13 @@ func TestPubkeyV4Object(t *testing.T) {
 	if _, ok := msg.Payload.(*objects.PubkeyEncryptedV4); !ok {
 		t.Error("for Payload, did not get PubkeyEncryptedV4 object type")
 	}
+	if _, ok := msg.Payload.(DecryptablePayload); !ok {
+		t.Fatal("preserialized payload not decryptable")
+	}
 
 	raw := msg.Serialize()
 	msg1 := new(ObjectMessage)
-	DeserializeTo(msg1, raw[MessageHeaderSize():])
+	types.DeserializeTo(msg1, raw[MessageHeaderSize():])
 
 	if msg1.ObjectType != PubkeyObject {
 		t.Error("for ObjectType got", msg1.ObjectType, "expected PubkeyObject")
@@ -317,11 +320,22 @@ func TestPubkeyV4Object(t *testing.T) {
 		constants.POWDefaultNonceTrialsPerByte) {
 		t.Error("nonce check failed")
 	}
-	// TODO try decrypting Pubkey and check if it corresponds to unencrypted
-	// key
-
 	// test if decryption fails with wrong address
-	// test if decryption succeeds with right address
+	success, err := msg1.TryDecrypt(nil, &ownId2.Address)
+	if err != nil {
+		t.Error("error should be nil while trying decryption with wrong address,",
+			"got", err)
+	}
+	if success {
+		t.Error("wut? decryption cannot succeed with wrong address")
+	}
+
+	// test if decryption succeeds with right addres
+	success, err = msg1.TryDecrypt(nil, &ownId1.Address)
+	if err != nil && success {
+		t.Fatal(err) // this should succeed, always
+	}
+	// check if pubkey corresponds to unencrypted key
 
 	// TODO check if the signature of unencrypted message is valid
 	// TODO generate foreign identity from public key and check if it's same

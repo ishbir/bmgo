@@ -3,6 +3,7 @@ package objects
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"io"
 	"io/ioutil"
 
@@ -209,4 +210,20 @@ func (obj *PubkeyUnencryptedV4) Encrypt(key *elliptic.PublicKey) (
 	encKey := new(PubkeyEncryptedV4)
 	encKey.EncryptedData = encData
 	return encKey, nil
+}
+
+func (obj *PubkeyEncryptedV4) Decrypt(key *elliptic.PrivateKey) (
+	types.Serializer, error) {
+	dencData, err := key.Decrypt(obj.EncryptedData)
+	if err == elliptic.InvalidMACError {
+		return nil, err // propogate the same error back
+	} else if err != nil {
+		return nil, errors.New("decryption failed: " + err.Error())
+	}
+	dencKey := new(PubkeyUnencryptedV4)
+	err = types.DeserializeTo(dencKey, dencData)
+	if err != nil {
+		return nil, err
+	}
+	return dencKey, nil
 }

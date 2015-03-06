@@ -327,7 +327,7 @@ func (msg *ObjectMessage) TryDecrypt(ownId *identity.Own,
 	// invalid private key/corrupted data
 	if err == elliptic.InvalidMACError {
 		return false, nil
-	} else {
+	} else if err != nil {
 		return false, err
 	}
 	msg.Payload = dencPayload

@@ -286,6 +286,7 @@ func TestPubkeyV4Object(t *testing.T) {
 			},
 		},
 	}
+	ownId1.CreateAddress(4, 1)
 	if _, ok := msg.Payload.(EncryptablePayload); !ok {
 		t.Fatal("payload not encryptable")
 	}
@@ -332,14 +333,31 @@ func TestPubkeyV4Object(t *testing.T) {
 
 	// test if decryption succeeds with right addres
 	success, err = msg1.TryDecrypt(nil, &ownId1.Address)
-	if err != nil && success {
+	if err != nil || !success {
 		t.Fatal(err) // this should succeed, always
 	}
-	// check if pubkey corresponds to unencrypted key
 
-	// TODO check if the signature of unencrypted message is valid
-	// TODO generate foreign identity from public key and check if it's same
+	payload := msg1.Payload.(*objects.PubkeyUnencryptedV4)
 
+	// generate foreign identity from public key and check if it's same
+	genID, _ := msg1.GenerateForeignIdentity()
+
+	ownAddr, _ := ownId1.Address.Encode()
+	genAddr, _ := genID.Address.Encode()
+
+	if ownAddr != genAddr {
+		t.Error("for generated addresses expected", ownAddr, "got", genAddr)
+	}
+
+	// check if the signature is valid
+	sigMatch, err := genID.SigningKey.VerifySignature(payload.Signature,
+		append(msg1.HeaderSerialize(), payload.SignatureSerialize()...))
+	if err != nil {
+		t.Error("signature verification failed:", err)
+	}
+	if !sigMatch {
+		t.Error("invalid signature")
+	}
 }
 
 func TestMsgObject(t *testing.T) {

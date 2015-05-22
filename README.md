@@ -5,6 +5,9 @@ programming language from Google.
 
 The entire implementation is divided into 4 packages.
 
+*Note*: The project has been abandoned in favour of work on bmd/bmclient:
+https://github.com/monetas/bmd
+
 bitmessage
 ----------
 The main library which provides the implementation of the protocol. It does not
